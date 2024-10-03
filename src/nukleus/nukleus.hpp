@@ -154,10 +154,11 @@
 #endif
 
 /*
-TODO possible Doxygen improvements:
+TODO possible improvements:
 - deduplicate docs for function parameters with same name
 - document each blank function that should not be used
 - LIST VIEW (3089): nk_list_view_begin, nk_list_view_end - not implemented - no docs and no examples
+- COMBOBOX - unclear overloads, const issues
 - nk_flags - an alias for uint, not type safe
 */
 
@@ -180,6 +181,10 @@ namespace nk {
 
 struct true_type  { static constexpr bool value = true; };
 struct false_type { static constexpr bool value = false; };
+
+template <typename T> struct is_pointer      : false_type {};
+template <typename T> struct is_pointer<T*>  : true_type {};
+template <typename T> constexpr bool is_pointer_v = is_pointer<T>::value;
 
 template <typename>   struct is_lvalue_reference     : false_type {};
 template <typename T> struct is_lvalue_reference<T&> : true_type {};
@@ -863,7 +868,6 @@ public:
 	}
 };
 
-
 /**
  * @brief Grouping API
  * @details Groups are basically windows inside windows. They allow to subdivide
@@ -895,10 +899,10 @@ public:
 	}
 
 	/**
-	 * @brief Return whether this group should be processed.
+	 * @brief Return whether this scope-widget should be processed.
 	 * @return `true` if visible and fillable with widgets, otherwise `false`.
-	 * @details Groups, unlike windows, need `nk_group_end` to be only called if the corresponding
-	 * `nk_group_begin_xxx` call does not return 0. Thus, the implementation here differs from the window class.
+	 * @details Some scope widgets, unlike windows, need `nk_xxx_end` to be only called if the corresponding
+	 * `nk_xxx_begin_xxx` call returns nk_true. Thus, the implementation here differs from the window class.
 	 */
 	explicit operator bool() const &
 	{
@@ -1202,20 +1206,232 @@ public:
 	}
 };
 
+/**
+ * @brief tree widget scope guard
+ */
 class tree : public scope_guard
 {
 public:
 	using scope_guard::scope_guard;
 
+	explicit operator bool() const &
+	{
+		return is_scope_active();
+	}
+};
+
+/**
+ * @brief UNDOCUMENTED
+ */
+class chart : public scope_guard
+{
+public:
+	using scope_guard::scope_guard;
+
+	void add_slot(nk_chart_type type, int count, float min_value, float max_value)
+	{
+		nk_chart_add_slot(&get_context(), type, count, min_value, max_value);
+	}
+
+	void add_slot_colored(nk_chart_type type, color col, color highlight, int count, float min_value, float max_value)
+	{
+		nk_chart_add_slot_colored(&get_context(), type, col, highlight, count, min_value, max_value);
+	}
+
+	[[nodiscard]] nk_flags push(float value)
+	{
+		return nk_chart_push(&get_context(), value);
+	}
+
+	[[nodiscard]] nk_flags push_slot(float value, int slot)
+	{
+		return nk_chart_push_slot(&get_context(), value, slot);
+	}
+
 	/**
-	 * @brief Return whether this tree should be processed.
+	 * @brief Return whether this chart should be processed.
 	 * @return `true` if visible and fillable with widgets, otherwise `false`.
-	 * @details Trees, unlike windows, need `nk_tree_pop` to be only called if the corresponding
-	 * `nk_tree_push` call does not return 0. Thus, the implementation here differs from the window class.
 	 */
 	explicit operator bool() const &
 	{
 		return is_scope_active();
+	}
+};
+
+class popup : public scope_guard
+{
+public:
+	using scope_guard::scope_guard;
+
+	explicit operator bool() const &
+	{
+		return is_scope_active();
+	}
+
+	void close()
+	{
+		nk_popup_close(&get_context());
+	}
+
+	void get_scroll(nk_uint* offset_x, nk_uint* offset_y)
+	{
+		nk_popup_get_scroll(&get_context(), offset_x, offset_y);
+	}
+
+	[[nodiscard]] vec2<nk_uint> get_scroll()
+	{
+		vec2<nk_uint> result;
+		nk_popup_get_scroll(&get_context(), &result.x, &result.y);
+		return result;
+	}
+
+	void set_scroll(nk_uint offset_x, nk_uint offset_y)
+	{
+		nk_popup_set_scroll(&get_context(), offset_x, offset_y);
+	}
+};
+
+class combobox : public scope_guard
+{
+public:
+	using scope_guard::scope_guard;
+
+	explicit operator bool() const &
+	{
+		return is_scope_active();
+	}
+
+	[[nodiscard]] bool combo_item_label(const char* label, nk_flags alignment)
+	{
+		return nk_combo_item_label(&get_context(), label, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool combo_item_text(const char* text, int len, nk_flags alignment)
+	{
+		return nk_combo_item_text(&get_context(), text, len, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool combo_item_image_label(image img, const char* text, nk_flags alignment)
+	{
+		return nk_combo_item_image_label(&get_context(), img, text, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool combo_item_image_text(image img, const char* text, int len, nk_flags alignment)
+	{
+		return nk_combo_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool combo_item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	{
+		return nk_combo_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	{
+		return nk_combo_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
+	}
+
+	void close()
+	{
+		nk_combo_close(&get_context());
+	}
+};
+
+/**
+ * @brief contextual widget scope guard
+ */
+class contextual : public scope_guard
+{
+public:
+	using scope_guard::scope_guard;
+
+	explicit operator bool() const &
+	{
+		return is_scope_active();
+	}
+
+	[[nodiscard]] bool item_text(const char* text, int len, nk_flags align)
+	{
+		return nk_contextual_item_text(&get_context(), text, len, align) == nk_true;
+	}
+
+	[[nodiscard]] bool item_label(const char* label, nk_flags align)
+	{
+		return nk_contextual_item_label(&get_context(), label, align) == nk_true;
+	}
+
+	[[nodiscard]] bool item_image_label(nk::image img, const char* label, nk_flags alignment)
+	{
+		return nk_contextual_item_image_label(&get_context(), img, label, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
+	{
+		return nk_contextual_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	{
+		return nk_contextual_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	{
+		return nk_contextual_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
+	}
+
+	void close()
+	{
+		nk_contextual_close(&get_context());
+	}
+};
+
+/**
+ * @brief menu widget scope guard
+ */
+class menu : public scope_guard
+{
+public:
+	using scope_guard::scope_guard;
+
+	explicit operator bool() const &
+	{
+		return is_scope_active();
+	}
+
+	[[nodiscard]] bool item_text(const char* text, int len, nk_flags alignment)
+	{
+		return nk_menu_item_text(&get_context(), text, len, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_label(const char* label, nk_flags alignment)
+	{
+		return nk_menu_item_label(&get_context(), label, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_image_label(nk::image img, const char* label, nk_flags alignment)
+	{
+		return nk_menu_item_image_label(&get_context(), img, label, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
+	{
+		return nk_menu_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	{
+		return nk_menu_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
+	}
+
+	[[nodiscard]] bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	{
+		return nk_menu_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
+	}
+
+	void close()
+	{
+		nk_menu_close(&get_context());
 	}
 };
 
@@ -2806,6 +3022,356 @@ public:
 	[[nodiscard]] bool color_pick(colorf& col, color_format fmt)
 	{
 		return nk_color_pick(&get_context(), &col, fmt) == nk_true;
+	}
+
+	///@}
+
+	/**
+	 * @name Properties
+	 * Properties are the main value modification widgets in Nuklear. Changing a value
+	 * can be achieved by dragging, adding/removing incremental steps on button click
+	 * or by directly typing a number.
+	 *
+	 * Each property requires a unique name for identification that is also used for
+	 * displaying a label. If you want to use the same name multiple times make sure
+	 * to add a '#' before your name. The '#' will not be shown but will generate a
+	 * unique ID. Each property also takes in a minimum and maximum value.
+	 * In additional each property takes in
+	 * a increment value that will be added or subtracted if either the increment
+	 * decrement button is clicked. Finally there is a value for increment per pixel
+	 * dragged that is added or subtracted from the value.
+	 * @{
+	 */
+
+	/**
+	 * @brief Property directly modifying a passed in value.
+	 * @param name String used both as a label as well as a unique identifier.
+	 * @param min Minimum allowed value.
+	 * @param val Value to be modified.
+	 * @param max Maximum allowed value.
+	 * @param step Value change on increment and decrement button.
+	 * @param inc_per_pixel Value change per pixel on dragging.
+	 */
+	void property(const char* name, int min, int& val, int max, int step = 1, float inc_per_pixel = 1.0f)
+	{
+		nk_property_int(&get_context(), name, min, &val, max, step, inc_per_pixel);
+	}
+
+	/**
+	 * @copydoc property(const char*, int, int&, int, int, float)
+	 */
+	void property(const char* name, float min, float& val, float max, float step = 1.0f, float inc_per_pixel = 1.0f)
+	{
+		nk_property_float(&get_context(), name, min, &val, max, step, inc_per_pixel);
+	}
+
+	/**
+	 * @copydoc property(const char*, int, int&, int, int, float)
+	 */
+	void property(const char* name, double min, double& val, double max, double step = 1.0, float inc_per_pixel = 1.0f)
+	{
+		nk_property_double(&get_context(), name, min, &val, max, step, inc_per_pixel);
+	}
+
+	/**
+	 * @brief Property modifying a passed in value and returning the new value.
+	 * @param name String used both as a label as well as a unique identifier.
+	 * @param min Minimum allowed value.
+	 * @param val Value to be modified.
+	 * @param max Maximum allowed value.
+	 * @param step Value change on increment and decrement button.
+	 * @param inc_per_pixel Value change per pixel on dragging.
+	 * @return New value, after modification.
+	 */
+	[[nodiscard]] int propertyi(const char* name, int min, int val, int max, int step = 1, float inc_per_pixel = 1.0f)
+	{
+		return nk_propertyi(&get_context(), name, min, val, max, step, inc_per_pixel);
+	}
+
+	/**
+	 * @copydoc propertyi
+	 */
+	[[nodiscard]] float propertyf(const char* name, float min, float val, float max, float step = 1.0f, float inc_per_pixel = 1.0f)
+	{
+		return nk_propertyf(&get_context(), name, min, val, max, step, inc_per_pixel);
+	}
+
+	/**
+	 * @copydoc propertyi
+	 */
+	[[nodiscard]] double propertyd(const char* name, double min, double val, double max, double step = 1.0, float inc_per_pixel = 1.0f)
+	{
+		return nk_propertyd(&get_context(), name, min, val, max, step, inc_per_pixel);
+	}
+
+	///@}
+
+	/**
+	 * @name Text Edit
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	[[nodiscard]] nk_flags edit_string(nk_flags flags, char* buffer, int& len, int max, nk_plugin_filter filter)
+	{
+		return nk_edit_string(&get_context(), flags, buffer, &len, max, filter);
+	}
+
+	[[nodiscard]] nk_flags edit_string_zero_terminated(nk_flags flags, char* buffer, int max, nk_plugin_filter filter)
+	{
+		return nk_edit_string_zero_terminated(&get_context(), flags, buffer, max, filter);
+	}
+
+	[[nodiscard]] nk_flags edit_buffer(nk_flags flags, nk_text_edit& edit, nk_plugin_filter filter)
+	{
+		return nk_edit_buffer(&get_context(), flags, &edit, filter);
+	}
+
+	void edit_focus(nk_flags flags)
+	{
+		nk_edit_focus(&get_context(), flags);
+	}
+
+	void edit_unfocus()
+	{
+		nk_edit_unfocus(&get_context());
+	}
+
+	///@}
+
+	/**
+	 * @name Chart
+	 * UNDOCUMENTED (text from demo)
+	 * This library has two different rather simple charts. The line and the
+	 * column chart. Both provide a simple way of visualizing values and
+	 * have a retained mode and immediate mode API version.
+	 *
+	 * For the retained
+	 * mode version `plot` and `plot_function` you either provide
+	 * an array or a callback to call to handle drawing the graph.
+	 *
+	 * For the immediate mode version you start by calling `scoped_chart`
+	 * and need to provide min and max values for scaling on the Y-axis.
+	 * and then call `push` on it to push values into the chart.
+	 * @{
+	 */
+
+	[[nodiscard]] chart scoped_chart(nk_chart_type type, int count, float min, float max)
+	{
+		return chart(
+			get_context(),
+			nk_chart_begin(&get_context(), type, count, min, max) == nk_true ? &nk_chart_end : nullptr);
+	}
+
+	[[nodiscard]] chart scoped_chart_colored(nk_chart_type type, color col, color highlight, int count, float min, float max)
+	{
+		return chart(
+			get_context(),
+			nk_chart_begin_colored(&get_context(), type, col, highlight, count, min, max) == nk_true ? &nk_chart_end : nullptr);
+	}
+
+	void plot(nk_chart_type type, const float* values, int count, int offset)
+	{
+		nk_plot(&get_context(), type, values, count, offset);
+	}
+
+	void plot_function(nk_chart_type type, void* userdata, float(*value_getter)(void* userdata, int index), int count, int offset)
+	{
+		nk_plot_function(&get_context(), type, userdata, value_getter, count, offset);
+	}
+
+	template <typename F>
+	void plot_function(nk_chart_type type, F&& f, int count, int offset) // TODO needs test
+	{
+		static_assert(!is_pointer_v<remove_reference_t<F>>, "pass a function, not a function pointer");
+		auto value_getter = [](void* userdata, int index) -> float {
+			return (*static_cast<remove_reference_t<F>*>(userdata))(index);
+		};
+		plot_function(type, static_cast<void*>(&f), value_getter, count, offset);
+	}
+
+	///@}
+
+	/**
+	 * @name Popup
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	[[nodiscard]] popup scoped_popup(nk_popup_type type, const char* title, nk_flags flags, rect<float> bounds)
+	{
+		return popup(
+			get_context(),
+			nk_popup_begin(&get_context(), type, title, flags, bounds) == nk_true ? &nk_popup_end : nullptr);
+	}
+
+	///@}
+
+private:
+	[[nodiscard]] combobox scoped_combo_internal(nk_bool result)
+	{
+		return combobox(get_context(), result == nk_true ? &nk_combo_end : nullptr);
+	}
+
+public:
+	/**
+	 * @name Abstract Combobox
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	[[nodiscard]] combobox scoped_combo_text(const char* selected, int len, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_text(&get_context(), selected, len, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_label(const char* selected, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_label(&get_context(), selected, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_color(color col, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_color(&get_context(), col, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_symbol(nk_symbol_type symbol, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_symbol(&get_context(), symbol, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_symbol_label(const char* selected, nk_symbol_type symbol, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_symbol_label(&get_context(), selected, symbol, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_symbol_text(const char* selected, int len, nk_symbol_type symbol, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_symbol_text(&get_context(), selected, len, symbol, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_image(nk::image img, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_image(&get_context(), img, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_image_label(const char* selected, nk::image img, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_image_label(&get_context(), selected, img, size));
+	}
+
+	[[nodiscard]] combobox scoped_combo_image_text(const char* selected, int len, nk::image img, vec2<float> size)
+	{
+		return scoped_combo_internal(nk_combo_begin_image_text(&get_context(), selected, len, img, size));
+	}
+
+	///@}
+
+	/**
+	 * @name Contextual
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	[[nodiscard]] contextual scoped_contextual(nk_flags flags, vec2<float> size, rect<float> trigger_bounds)
+	{
+		return contextual(
+			get_context(),
+			nk_contextual_begin(&get_context(), flags, size, trigger_bounds) == nk_true ? &nk_contextual_end : nullptr);
+	}
+
+	///@}
+
+	/**
+	 * @name Tooltip
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	void tooltip(const char* label)
+	{
+		nk_tooltip(&get_context(), label);
+	}
+
+#ifdef NK_INCLUDE_STANDARD_VARARGS
+	void tooltipf(NK_PRINTF_FORMAT_STRING const char* fmt, ...) NK_PRINTF_VARARG_FUNC(2)
+	{
+		va_list args;
+		va_start(args, fmt);
+		nk_tooltipv(&get_context(), fmt, args);
+		va_end(args);
+	}
+
+	void tooltipfv(NK_PRINTF_FORMAT_STRING const char* fmt, va_list args) NK_PRINTF_VALIST_FUNC(2)
+	{
+		nk_tooltipfv(&get_context(), fmt, args);
+	}
+#endif
+
+	scope_guard scoped_tooltip(float width)
+	{
+		return scope_guard(get_context(), nk_tooltip_begin(&get_context(), width) == nk_true ? &nk_tooltip_end : nullptr);
+	}
+
+	///@}
+
+private:
+	[[nodiscard]] menu scoped_menu_internal(nk_bool result)
+	{
+		return menu(get_context(), result == nk_true ? &nk_menu_end : nullptr);
+	}
+
+public:
+	/**
+	 * @name Menu
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	[[nodiscard]] scope_guard scoped_menubar()
+	{
+		nk_menubar_begin(&get_context()); // this one returns void - always succeeds
+		return scope_guard(get_context(), &nk_menubar_end);
+	}
+
+	[[nodiscard]] menu menu_begin_text(const char* text, int len, nk_flags alignment, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_text(&get_context(), text, len, alignment, size));
+	}
+
+	[[nodiscard]] menu menu_begin_label(const char* label, nk_flags alignment, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_label(&get_context(), label, alignment, size));
+	}
+
+	[[nodiscard]] menu menu_begin_image(const char* id, nk::image img, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_image(&get_context(), id, img, size));
+	}
+
+	[[nodiscard]] menu menu_begin_image_text(const char* title, int len, nk_flags alignment, nk::image img, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_image_text(&get_context(), title, len, alignment, img, size));
+	}
+
+	[[nodiscard]] menu menu_begin_image_label(const char*, nk_flags alignment, nk::image img, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_image_label(&get_context(), title, alignment, img, size));
+	}
+
+	[[nodiscard]] menu menu_begin_symbol(const char* id, nk_symbol_type symbol, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_symbol(&get_context(), id, symbol, size));
+	}
+
+	[[nodiscard]] menu menu_begin_symbol_text(const char* title, int len, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_symbol_text(&get_context(), title, len, alignment, symbol, size));
+	}
+
+	[[nodiscard]] menu menu_begin_symbol_label(const char* title, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	{
+		return scoped_menu_internal(nk_menu_begin_symbol_label(&get_context(), title, alignment, symbol, size));
 	}
 
 	///@}
