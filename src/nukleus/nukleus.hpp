@@ -159,7 +159,10 @@ TODO possible improvements:
 - document each blank function that should not be used
 - LIST VIEW (3089): nk_list_view_begin, nk_list_view_end - not implemented - no docs and no examples
 - COMBOBOX - unclear overloads, const issues
+- IMAGE, 9-SLICE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
+- think whether it would make sense to implement point+extent (even further from nk math types)
+- UTF-8 - undocumented
 */
 
 namespace nk {
@@ -181,6 +184,10 @@ namespace nk {
 
 struct true_type  { static constexpr bool value = true; };
 struct false_type { static constexpr bool value = false; };
+
+template <typename T, typename U> struct is_same       : false_type {};
+template <typename T>             struct is_same<T, T> : true_type {};
+template <typename T, typename U> constexpr bool is_same_v = is_same<T, U>::value;
 
 template <typename T> struct is_pointer      : false_type {};
 template <typename T> struct is_pointer<T*>  : true_type {};
@@ -229,6 +236,21 @@ template <typename T> using remove_cv_t = typename remove_cv<T>::type;
 
 template <typename T> struct remove_cvref { using type = remove_cv_t<remove_reference_t<T>>; };
 template <typename T> using remove_cvref_t = typename remove_cvref<T>::type;
+
+///@}
+
+// ---- meta traits ----
+
+/**
+ * @defgroup meta_traits Meta Traits
+ */
+
+template <bool B, typename T = void> struct enable_if {};
+template <typename T>                struct enable_if<true, T> { using type = T; };
+template <bool B, typename T = void> using enable_if_t = typename enable_if<B, T>::type;
+
+template <typename... Ts> struct void_t_impl { using type = void; };
+template <typename... Ts> using void_t = typename void_t_impl<Ts...>::type;
 
 ///@}
 
@@ -326,6 +348,86 @@ struct output_bool
 
 ///@}
 
+// -------- string utilities --------
+
+/**
+ * @defgroup str_utility String utility functions
+ * @{
+ */
+
+/**
+ * @brief Return string length in bytes
+ * @param str string to check
+ * @return length in bytes (excluding '\0')
+ */
+inline int strlen(const char* str) { return nk_strlen(str); }
+
+/**
+ * @brief String compare, case insensitive
+ * @param s1 first string
+ * @param s2 second string
+ * @return <0 if s1 < s2, 0 is s1 == s2, >0 if s1 > s2
+ */
+inline int stricmp(const char* s1, const char* s2) { return nk_stricmp(s1, s2); }
+
+/**
+ * @copydoc stricmp
+ * @param n max number of characters to compare
+ */
+inline int stricmpn(const char* s1, const char* s2, int n) { return nk_stricmpn(s1, s2, n); }
+
+/**
+ * @brief string to int
+ * @param str string to convert
+ * @return value or 0 if convertion failed
+ * @details this function skips second `nk_strtoi` parameter due to API stability issue caused by const
+ */
+inline int strtoi(const char* str) { return nk_strtoi(str, nullptr); }
+
+/**
+ * @brief string to float
+ * @param str string to convert
+ * @return value or 0 if convertion failed
+ * @details this function skips second `nk_strtof` parameter due to API stability issue caused by const
+ */
+inline float strtof(const char* str) { return nk_strtof(str, nullptr); }
+
+#ifndef NK_STRTOD
+/**
+ * @brief string to double
+ * @param str string to convert
+ * @return value or 0 if convertion failed
+ * @details this function skips second `nk_strtod` parameter due to API stability issue caused by const
+ */
+inline double strtod(const char* str) { return nk_strtod(str, nullptr); }
+#endif
+
+// TODO this is undocumented (implements very narrow set of regex operators)
+// strfilter(const char* text, const char* regexp);
+
+/**
+ * @brief perform fuzzy string search
+ * @param str string to search within
+ * @param pattern pattern to find
+ * @param out_score set if pattern is found, has no intrinsic meaning, comparison only makes sense with same search pattern
+ * @return true if each character in pattern is found sequentially within @p str
+ */
+inline bool strmatch_fuzzy_string(char const* str, char const* pattern, int* out_score = nullptr)
+{
+	return nk_strmatch_fuzzy_string(str, pattern, out_score) == nk_true;
+}
+
+/**
+ * @copydoc strmatch_fuzzy_string
+ * @param str_len length of @p str
+ */
+inline bool strmatch_fuzzy_text(const char* str, int str_len, const char* pattern, int* out_score = nullptr)
+{
+	return nk_strmatch_fuzzy_text(str, str_len, pattern, out_score) == nk_true;
+}
+
+///@}
+
 // -------- basic types --------
 
 /**
@@ -335,53 +437,478 @@ struct output_bool
  * @{
  */
 
-using color = nk_color;
-using colorf = nk_colorf;
+using byte = nk_byte;
+using hash = nk_hash;
+
+inline hash murmur_hash(const void* data, int len, hash seed)
+{
+	return nk_murmur_hash(data, len, seed);
+}
+
+/**
+ * @brief RGBA color type with byte storage: [0, 255]
+ * @details mirrors nk_color
+ */
+struct color
+{
+	color() = default;
+
+	color(nk_byte r, nk_byte g, nk_byte b, nk_byte a = 255)
+	: r(r), g(g), b(b), a(a)
+	{}
+
+	/* implicit */ color(nk_color col)
+	: color(col.r, col.g, col.b, col.a)
+	{}
+
+	color(nk_color col, nk_byte a)
+	: color(col.r, col.g, col.b, a)
+	{}
+
+	/* implicit */ color(nk_colorf col)
+	: color(nk_rgba_cf(col))
+	{}
+
+	color(nk_colorf col, float a)
+	: color(nk_rgba_f(col.r, col.g, col.b, a))
+	{}
+
+	color(nk_colorf col, nk_byte a)
+	: color(nk_rgb_f(col.r, col.g, col.b), a)
+	{}
+
+	/* implicit */ operator nk_color() const { return {r, g, b, a}; }
+
+	/**
+	 * @name from RGB (int)
+	 * @{
+	 */
+
+	/// @brief clamps values in range [0, 255]
+	static color from_rgb(int r, int g, int b) { return nk_rgb(r, g, b); }
+	static color from_rgb(nk_byte r, nk_byte g, nk_byte b) { return nk_color{r, g, b, static_cast<nk_byte>(255)}; }
+	/// @brief clamps values in range [0, 255]; [rgb, rgb+3) must be a valid range
+	static color from_rgb(const int* rgb) { return nk_rgb_iv(rgb); }
+	/// @brief [rgb, rgb+3) must be a valid range
+	static color from_rgb(const nk_byte* rgb) { return nk_rgb_bv(rgb); }
+
+	///@}
+
+	/**
+	 * @name from RGB (float)
+	 * @{
+	 */
+
+	/// @brief clamps values in range [0, 1.0]
+	static color from_rgb(float r, float g, float b) { return nk_rgb_f(r, g, b); }
+	/// @brief clamps values in range [0, 1.0]; [rgb, rgb+3) must be a valid range
+	static color from_rgb(const float* rgb) { return nk_rgb_fv(rgb); }
+
+	///@}
+
+	/**
+	 * @name from RGBA (int)
+	 * @{
+	 */
+
+	/// @brief clamps values in range [0, 255]
+	static color from_rgba(int r, int g, int b, int a) { return nk_rgba(r, g, b, a); }
+	static color from_rgba(nk_byte r, nk_byte g, nk_byte b, nk_byte a) { return nk_color{r, g, b, a}; }
+	/// @brief clamps values in range [0, 255]; [rgba, rgba+4) must be a valid range
+	static color from_rgba(const int* rgba) { return nk_rgba_iv(rgba); }
+	/// @brief [rgba, rgba+4) must be a valid range
+	static color from_rgba(const nk_byte* rgba) { return nk_rgba_bv(rgba); }
+
+	static color from_rgba(nk_uint rgba) { return nk_rgba_u32(rgba); }
+	/// @brief multiply other color by a factor, alpha unchanged
+	static color from_factor(nk_color col, float factor) { return nk_rgb_factor(col, factor); }
+
+	///@}
+
+	/**
+	 * @name from RGBA (float)
+	 * @{
+	 */
+
+	/// @brief clamps values in valid range [0, 1.0]
+	static color from_rgba(float r, float g, float b, float a) { return nk_rgba_f(r, g, b, a); }
+	/// @brief clamps values in range [0, 1.0]; [rgba, rgba+4) must be a valid range
+	static color from_rgba(const float* rgba) { return nk_rgba_fv(rgba); }
+
+	///@}
+
+	/**
+	 * @name from HSV (int)
+	 * @{
+	 */
+
+	/// @brief clamps values in range [0, 255]
+	static color from_hsv(int h, int s, int v) { return nk_hsv(h, s, v); }
+	static color from_hsv(nk_byte h, nk_byte s, nk_byte v) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, 1.0f); }
+	/// @brief clamps values in range [0, 255]; [hsv, hsv+3) must be a valid range
+	static color from_hsv(const int* hsv) { return nk_hsv_iv(hsv); }
+	/// @brief [hsv, hsv+3) must be a valid range
+	static color from_hsv(const nk_byte* hsv) { return nk_hsv_bv(hsv); }
+
+	///@}
+
+	/**
+	 * @name from HSV (float)
+	 * @{
+	 */
+
+	static color from_hsv(float h, float s, float v) { return nk_hsv_f(h, s, v); }
+	/// @brief [hsv, hsv+3) must be a valid range
+	static color from_hsv(const float* hsv) { return nk_hsv_fv(hsv); }
+
+	///@}
+
+	/**
+	 * @name from HSVA (int)
+	 * @{
+	 */
+
+	/// @brief clamps values in range [0, 255]
+	static color from_hsva(int h, int s, int v, int a) { return nk_hsva(h, s, v, a); }
+	static color from_hsva(nk_byte h, nk_byte s, nk_byte v, nk_byte a) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, a / 255.0f); }
+	/// @brief clamps values in range [0, 255]; [hsv, hsv+4) must be a valid range
+	static color from_hsva(const int* hsva) { return nk_hsva_iv(hsva); }
+	/// @brief [hsva, hsva+4) must be a valid range
+	static color from_hsva(const nk_byte* hsva) { return nk_hsva_bv(hsva); }
+
+	///@}
+
+	/**
+	 * @name from HSVA (float)
+	 * @{
+	 */
+
+	static color from_hsva(float h, float s, float v, float a) { return nk_hsva_f(h, s, v, a); }
+	/// @brief [hsva, hsva+4) must be a valid range
+	static color from_hsva(const float* hsva) { return nk_hsva_fv(hsva); }
+
+	///@}
+
+	/**
+	 * @name from HEX
+	 * @{
+	 */
+
+	/// @brief string should have the form "#RRGGBB" or "RRGGBB"
+	static color from_rgb_hex(const char* rgb) { return nk_rgb_hex(rgb); }
+	/// @brief string should have the form "#RRGGBBAA" or "RRGGBBAA"
+	static color from_rgba_hex(const char* rgba) { return nk_rgba_hex(rgba); }
+
+	///@}
+
+	/**
+	 * @name to HEX
+	 * @{
+	 */
+
+	/// @brief [output, output+7) must be a valid range
+	void to_rgb_hex(char* output) const { nk_color_hex_rgb(output, *this); }
+	/// @brief [output, output+9) must be a valid range
+	void to_rgba_hex(char* output) const { nk_color_hex_rgba(output, *this); }
+
+	///@}
+
+	nk_uint to_u32() const { return nk_color_u32(*this); }
+
+	nk_byte r = 0;
+	nk_byte g = 0;
+	nk_byte b = 0;
+	nk_byte a = 255;
+};
+
+/**
+ * @brief RGBA color type with float storage: [0, 1.0f]
+ * @details mirrors nk_colorf
+ */
+struct colorf
+{
+	colorf() = default;
+
+	colorf(float r, float g, float b, float a = 1.0f)
+	: r(r), g(g), b(b), a(a)
+	{}
+
+	/* implicit */ colorf(nk_colorf col)
+	: colorf(col.r, col.g, col.b, col.a)
+	{}
+
+	colorf(nk_colorf col, float a)
+	: colorf(col.r, col.g, col.b, a)
+	{}
+
+	/* implicit */ colorf(nk_color col)
+	: colorf(nk_color_cf(col))
+	{}
+
+	colorf(nk_color col, nk_byte a)
+	: colorf(nk_color_cf({col.r, col.g, col.b, a}))
+	{}
+
+	colorf(nk_color col, float a)
+	: colorf(nk_color_cf(col), a)
+	{}
+
+	/* implicit */ operator nk_colorf() const { return {r, g, b, a}; }
+
+	/**
+	 * @name from HSVA (float)
+	 * @{
+	 */
+
+	static colorf from_hsva(float h, float s, float v, float a) { return nk_hsva_colorf(h, s, v, a); }
+	static colorf from_hsva(const float* hsva) { return nk_hsva_colorf(hsva[0], hsva[1], hsva[2], hsva[3]); } // should be nk_hsva_colorfv but it has a const issue
+
+	///@}
+
+	float r = 0;
+	float g = 0;
+	float b = 0;
+	float a = 1.0f;
+};
+
+/**
+ * @brief HSVA color type with byte storage: [0, 255]
+ */
+struct color_hsva
+{
+	color_hsva() = default;
+
+	/* implicit */ color_hsva(nk_color col)
+	{
+		nk_color_hsva_b(&h, &s, &v, &a, col);
+	}
+
+	color_hsva(nk_color col, nk_byte a)
+	{
+		nk_color_hsv_b(&h, &s, &v, col);
+		this->a = a;
+	}
+
+	nk_byte h = 0;
+	nk_byte s = 0;
+	nk_byte v = 0;
+	nk_byte a = 255;
+};
+
+/**
+ * @brief HSVA color type with float storage: [0, 1.0f]
+ */
+struct colorf_hsva
+{
+	colorf_hsva() = default;
+
+	/* implicit */ colorf_hsva(nk_colorf col)
+	{
+		nk_colorf_hsva_f(&h, &s, &v, &a, col);
+	}
+
+	colorf_hsva(nk_colorf col, float a)
+	: colorf_hsva(nk_colorf{col.r, col.g, col.b, a})
+	{}
+
+	/* implicit */ colorf_hsva(nk_color col)
+	{
+		nk_color_hsva_f(&h, &s, &v, &a, col);
+	}
+
+	float h = 0;
+	float s = 0;
+	float v = 0;
+	float a = 1.0f;
+};
+
+// RGBA (int)  => RGBA (float)
+// RGBA (float) => RGBA (int)
+inline colorf rgba_to_rgbaf(color rgba) { return static_cast<nk_color>(rgba); }
+inline color rgbaf_to_rgba(colorf rgbaf) { return static_cast<nk_colorf>(rgbaf); }
+
+// HSVA (int)  => HSVA (float)
+// HSVA (float) => HSVA (int)
+// inline colorf_hsva hsva_to_hsvaf(color_hsva hsva); // TODO
+// inline color_hsva hsvaf_to_hsva(colorf_hsva hsvaf); // TODO
+
+// RGBA (int) => HSVA (int)
+// HSVA (int) => RGBA (int)
+inline color_hsva rgba_to_hsva(color rgba) { return static_cast<nk_color>(rgba); }
+inline color hsva_to_rgba(color_hsva hsva) { return nk_hsva(hsva.h, hsva.s, hsva.v, hsva.a); }
+
+// RGBA (float) => HSVA (float)
+// HSVA (float) => RGBA (float)
+inline colorf_hsva rgbaf_to_hsvaf(colorf rgbaf) { return static_cast<nk_colorf>(rgbaf); }
+inline colorf hsvaf_to_rgbaf(colorf_hsva hsvaf) { return nk_hsva_colorf(hsvaf.h, hsvaf.s, hsvaf.v, hsvaf.a); }
+
+// RGBA (int)  => HSVA (float)
+// HSVA (float) => RGBA (int)
+inline colorf_hsva rgba_to_hsvaf(color rgba) { return static_cast<nk_color>(rgba); }
+inline color hsvaf_to_rgba(colorf_hsva hsvaf) { return nk_hsva_f(hsvaf.h, hsvaf.s, hsvaf.v, hsvaf.a); }
+
+// RGBA (float) => HSVA (int)
+// HSVA (int)  => RGBA (float)
+inline color_hsva rgbaf_to_hsva(colorf rgbaf) { return rgba_to_hsva(rgbaf_to_rgba(rgbaf)); }
+inline colorf hsva_to_rgbaf(color_hsva hsva) { return rgba_to_rgbaf(hsva_to_rgba(hsva)); }
+
+/*
+not used:
+
+// RGBA (float) => HSVA (float) // there is already colorf_hsva::colorf_hsva(nk_colorf)
+void nk_colorf_hsva_fv(float *hsva, struct nk_colorf in);
+
+// RGBA (int) => RGBA (float) // there is already colorf::colorf(nk_color)
+NK_API void nk_color_f(float *r, float *g, float *b, float *a, struct nk_color);
+NK_API void nk_color_fv(float *rgba_out, struct nk_color);
+
+// RGBA (int) => RGBA (double) // no need for doubles
+NK_API void nk_color_d(double *r, double *g, double *b, double *a, struct nk_color);
+NK_API void nk_color_dv(double *rgba_out, struct nk_color);
+
+// RGB (int) => HSV (int) // no alpha
+NK_API void nk_color_hsv_i(int *out_h, int *out_s, int *out_v, struct nk_color);
+NK_API void nk_color_hsv_iv(int *hsv_out, struct nk_color);
+NK_API void nk_color_hsv_bv(nk_byte *hsv_out, struct nk_color);
+
+// RGB (int) => HSV (float) // no alpha
+NK_API void nk_color_hsv_f(float *out_h, float *out_s, float *out_v, struct nk_color);
+NK_API void nk_color_hsv_fv(float *hsv_out, struct nk_color);
+
+// RGBA (int) => HSVA (int) // already used overload with separate nk_byte
+NK_API void nk_color_hsva_i(int *h, int *s, int *v, int *a, struct nk_color);
+NK_API void nk_color_hsva_iv(int *hsva_out, struct nk_color);
+NK_API void nk_color_hsva_bv(nk_byte *hsva_out, struct nk_color);
+
+// RGBA (int) => HSVA (float) // already used overload with separate float
+NK_API void nk_color_hsva_fv(float *hsva_out, struct nk_color);
+*/
+
 using color_format = nk_color_format;
 using image = struct nk_image;
 using symbol_type = nk_symbol_type;
 using heading = nk_heading;
 
+/**
+ * @brief 2D vector type mirroring nk_vec2(i), implicitly convertible to/from Nuklear's types
+ * @tparam T storage type
+ */
 template <typename T>
-struct vec2_t
+struct vec2
 {
+	vec2() = default;
+
+	vec2(T x, T y)
+	: x(x), y(y)
+	{}
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	vec2(struct nk_vec2 v)
+	: x(v.x), y(v.y)
+	{}
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	vec2(struct nk_vec2i v)
+	: x(v.x), y(v.y)
+	{}
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	operator struct nk_vec2() const { return {x, y}; }
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	operator struct nk_vec2i() const { return {x, y}; }
+
 	T x{};
 	T y{};
 };
 
+/**
+ * @brief Rectangle type mirroring nk_rect(i), implicitly convertible to/from Nuklear's types
+ * @tparam T storage type
+ */
 template <typename T>
-struct rect_t
+struct rect
 {
+	rect() = default;
+
+	rect(T x, T y, T w, T h)
+	: x(x), y(y), w(w), h(h)
+	{}
+
+	rect(vec2<T> pos, vec2<T> size)
+	: x(pos.x), y(pos.y), w(size.x), h(size.y)
+	{}
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	rect(struct nk_rect r)
+	: x(r.x), y(r.y), w(r.w), h(r.h)
+	{}
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	rect(struct nk_recti r)
+	: x(r.x), y(r.y), w(r.w), h(r.h)
+	{}
+
+	vec2<T> pos() const { return {x, y}; }
+	vec2<T> size() const { return {w, h}; }
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	operator struct nk_rect() const { return {x, y, w, h}; }
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	operator struct nk_recti() const { return {x, y, w, h}; }
+
 	T x{};
 	T y{};
 	T w{};
 	T h{};
 };
 
-namespace detail {
-
-// alias templates can not be specialized so pass aliases through a specializable class
-template <typename T> struct vec2_alias_impl { using type = vec2_t<T>; };
-template <> struct vec2_alias_impl<float> { using type = struct nk_vec2; };
-template <> struct vec2_alias_impl<short> { using type = struct nk_vec2i; };
-
-template <typename T> struct rect_alias_impl { using type = rect_t<T>; };
-template <> struct rect_alias_impl<float> { using type = struct nk_rect; };
-template <> struct rect_alias_impl<short> { using type = struct nk_recti; };
-
+/* TODO this actually returns 3 vec2
+inline vec2<float> triangle_from_direction(rect<float> r, float pad_x, float pad_y, heading direction)
+{
+	struct nk_vec2 result[3];
+	nk_triangle_from_direction(&result, r, pad_x, pad_y, direction);
+	return result;
 }
-
-template <typename T>
-using vec2 = typename detail::vec2_alias_impl<T>::type;
-
-template <typename T>
-using rect = typename detail::rect_alias_impl<T>::type;
+*/
 
 using widget_layout_states = nk_widget_layout_states;
 using buttons = nk_buttons;
 using text_align = nk_text_align;
 using style_button = nk_style_button;
 using button_behavior = enum nk_button_behavior;
+
+class color_table
+{
+public:
+	color_table() = default;
+	color_table(const nk_color (&table)[NK_COLOR_COUNT])
+	{
+		for (int i = 0; i < NK_COLOR_COUNT; ++i)
+			m_table[i] = table[i];
+	}
+
+	nk_color& operator[](nk_style_colors color_index)
+	{
+		NK_ASSERT(color_index < NK_COLOR_COUNT);
+		NK_ASSERT(color_index >= 0);
+		return m_table[color_index];
+	}
+
+	nk_color operator[](nk_style_colors color_index) const
+	{
+		NK_ASSERT(color_index < NK_COLOR_COUNT);
+		NK_ASSERT(color_index >= 0);
+		return m_table[color_index];
+	}
+
+	      nk_color* get()       { return m_table; }
+	const nk_color* get() const { return m_table; }
+
+private:
+	nk_color m_table[NK_COLOR_COUNT] = {};
+};
 
 ///@}
 
@@ -580,9 +1107,12 @@ public:
 	, m_invoke(exchange(other.m_invoke, false))
 	{}
 
+	// For some reason, gsl::final_action deletes move assignment.
+	// Perhaps scope guards should never be reset and always perform their action at the end of scope.
+	scoped_action& operator=(scoped_action&&) noexcept = delete;
+
 	scoped_action(const scoped_action&) = delete;
 	scoped_action& operator=(const scoped_action&) = delete;
-	scoped_action& operator=(scoped_action&&) noexcept = delete;
 
 	~scoped_action()
 	{
@@ -615,6 +1145,10 @@ public:
 	, m_state(other.m_state)
 	{}
 
+	scoped_action_with_bool(const scoped_action_with_bool&) = delete;
+	scoped_action_with_bool& operator=(const scoped_action_with_bool&) = delete;
+	scoped_action_with_bool& operator=(scoped_action_with_bool&&) noexcept = delete;
+
 	explicit operator bool() const noexcept
 	{
 		return m_state;
@@ -641,24 +1175,25 @@ make_scoped_with_bool(F&& f, bool state) noexcept
 /**
  * @brief Base class for implementing scope guards.
  */
-class scope_guard
+template <typename F>
+class scope_guard_base
 {
 public:
-	using func_type = void (nk_context*);
+	using func_type = F;
 
-	explicit scope_guard(nk_context& ctx, func_type* func) noexcept
+	explicit scope_guard_base(nk_context& ctx, func_type* func) noexcept
 	: m_ctx(&ctx)
 	, m_func(func)
 	{}
 
-	scope_guard(scope_guard&& other) noexcept
+	scope_guard_base(scope_guard_base&& other) noexcept
 	: m_ctx(other.m_ctx)
 	, m_func(exchange(other.m_func, nullptr))
 	{}
 
-	scope_guard(const scope_guard&) = delete;
-	scope_guard& operator=(const scope_guard&) = delete;
-	scope_guard& operator=(scope_guard&&) noexcept = delete;
+	scope_guard_base(const scope_guard_base&) = delete;
+	scope_guard_base& operator=(const scope_guard_base&) = delete;
+	scope_guard_base& operator=(scope_guard_base&&) noexcept = delete;
 
 	/**
 	 * @brief Get the active state of this guard.
@@ -698,24 +1233,12 @@ public:
 		return exchange(m_func, nullptr);
 	}
 
-	/**
-	 * @brief Reset state of this guard. Will call end function if active.
-	 */
-	void reset()
-	{
-		if (m_func)
-		{
-			m_func(m_ctx);
-			m_func = nullptr;
-		}
-	}
-
-	~scope_guard()
-	{
-		reset();
-	}
-
 protected:
+	// Protected because this class should not be used directly.
+	// It does not implement cleanup in the destructor. Derived classes do
+	// different cleanups and this class is used as a base to deduplicate code.
+	~scope_guard_base() = default;
+
 	func_type* get_func() const
 	{
 		return m_func;
@@ -730,6 +1253,74 @@ protected:
 private:
 	nk_context* m_ctx;
 	func_type* m_func = nullptr;
+};
+
+/**
+ * @brief default scope guard, just calls the function in dtor
+ */
+class scope_guard : public scope_guard_base<void (nk_context*)>
+{
+public:
+	// bring 2-argument ctor
+	using scope_guard_base::scope_guard_base;
+
+	// required because explicit destructor disables move (rule of 5)
+	scope_guard(const scope_guard&) = delete;
+	scope_guard(scope_guard&&) noexcept = default;
+	scope_guard& operator=(const scope_guard&) = delete;
+	scope_guard& operator=(scope_guard&&) noexcept = delete;
+
+	/**
+	 * @brief Reset state of this guard. Will call end function if active.
+	 */
+	void reset()
+	{
+		func_type* func = get_func();
+		if (func)
+		{
+			(*func)(&get_context());
+			set_func(nullptr);
+		}
+	}
+
+	~scope_guard()
+	{
+		reset();
+	}
+};
+
+class scoped_override_guard : public scope_guard_base<nk_bool (nk_context*)>
+{
+public:
+	// bring 2-argument ctor
+	using scope_guard_base::scope_guard_base;
+
+	// required because explicit destructor disables move (rule of 5)
+	scoped_override_guard(const scoped_override_guard&) = delete;
+	scoped_override_guard(scoped_override_guard&&) noexcept = default;
+	scoped_override_guard& operator=(const scoped_override_guard&) = delete;
+	scoped_override_guard& operator=(scoped_override_guard&&) noexcept = delete;
+
+	~scoped_override_guard()
+	{
+		reset();
+	}
+
+	explicit operator bool() const
+	{
+		return is_scope_active();
+	}
+
+	void reset()
+	{
+		func_type* func = get_func();
+		if (func)
+		{
+			const nk_bool result = (*func)(&get_context());
+			set_func(nullptr);
+			NK_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
+		}
+	}
 };
 
 ///@}
@@ -884,6 +1475,8 @@ class group : public scope_guard
 {
 public:
 	using scope_guard::scope_guard;
+
+	// group(group&&) noexcept = default; // XXX
 
 	/**
 	 * @name Group creation
@@ -2434,12 +3027,18 @@ public:
 
 	widget_layout_states widget(rect<float>& bounds) const
 	{
-		return nk_widget(&bounds, &get_context());
+		struct nk_rect r{};
+		auto result = nk_widget(&r, &get_context());
+		bounds = r;
+		return result;
 	}
 
 	widget_layout_states widget_fitting(rect<float>& bounds, vec2<float> item_padding)
 	{
-		return nk_widget_fitting(&bounds, &get_context(), item_padding);
+		struct nk_rect r{};
+		auto result = nk_widget_fitting(&r, &get_context(), item_padding);
+		bounds = r;
+		return result;
 	}
 
 	rect<float> widget_bounds()
@@ -2753,15 +3352,11 @@ public:
 		nk_button_set_behavior(&get_context(), behavior);
 	}
 
-	[[nodiscard]] auto scoped_button_behavior(button_behavior behavior)
+	[[nodiscard]] scoped_override_guard scoped_button_behavior(button_behavior behavior)
 	{
-		return make_scoped(
-			[ctx = &get_context()]() {
-				nk_bool result = nk_button_pop_behavior(ctx);
-				NK_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
-			},
-			nk_button_push_behavior(&get_context(), behavior) == nk_true // don't pop when push fails
-		);
+		return scoped_override_guard(
+			get_context(),
+			nk_button_push_behavior(&get_context(), behavior) == nk_true ? &nk_button_pop_behavior : nullptr);
 	}
 
 	///@}
@@ -3021,7 +3616,10 @@ public:
 
 	[[nodiscard]] bool color_pick(colorf& col, color_format fmt)
 	{
-		return nk_color_pick(&get_context(), &col, fmt) == nk_true;
+		struct nk_colorf c{};
+		bool result = nk_color_pick(&get_context(), &c, fmt) == nk_true;
+		col = c;
+		return result;
 	}
 
 	///@}
@@ -3298,7 +3896,7 @@ public:
 	{
 		va_list args;
 		va_start(args, fmt);
-		nk_tooltipv(&get_context(), fmt, args);
+		nk_tooltipfv(&get_context(), fmt, args);
 		va_end(args);
 	}
 
@@ -3349,14 +3947,14 @@ public:
 		return scoped_menu_internal(nk_menu_begin_image(&get_context(), id, img, size));
 	}
 
-	[[nodiscard]] menu menu_begin_image_text(const char* title, int len, nk_flags alignment, nk::image img, vec2<float> size)
+	[[nodiscard]] menu menu_begin_image_text(const char* text, int len, nk_flags alignment, nk::image img, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_image_text(&get_context(), title, len, alignment, img, size));
+		return scoped_menu_internal(nk_menu_begin_image_text(&get_context(), text, len, alignment, img, size));
 	}
 
-	[[nodiscard]] menu menu_begin_image_label(const char*, nk_flags alignment, nk::image img, vec2<float> size)
+	[[nodiscard]] menu menu_begin_image_label(const char* label, nk_flags alignment, nk::image img, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_image_label(&get_context(), title, alignment, img, size));
+		return scoped_menu_internal(nk_menu_begin_image_label(&get_context(), label, alignment, img, size));
 	}
 
 	[[nodiscard]] menu menu_begin_symbol(const char* id, nk_symbol_type symbol, vec2<float> size)
@@ -3364,14 +3962,14 @@ public:
 		return scoped_menu_internal(nk_menu_begin_symbol(&get_context(), id, symbol, size));
 	}
 
-	[[nodiscard]] menu menu_begin_symbol_text(const char* title, int len, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	[[nodiscard]] menu menu_begin_symbol_text(const char* text, int len, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_symbol_text(&get_context(), title, len, alignment, symbol, size));
+		return scoped_menu_internal(nk_menu_begin_symbol_text(&get_context(), text, len, alignment, symbol, size));
 	}
 
-	[[nodiscard]] menu menu_begin_symbol_label(const char* title, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	[[nodiscard]] menu menu_begin_symbol_label(const char* label, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_symbol_label(&get_context(), title, alignment, symbol, size));
+		return scoped_menu_internal(nk_menu_begin_symbol_label(&get_context(), label, alignment, symbol, size));
 	}
 
 	///@}
@@ -3798,6 +4396,149 @@ public:
 	{
 		nk_window_show_if(&m_ctx, name, state, cond);
 	}
+
+	///@}
+
+private:
+	[[nodiscard]] scoped_override_guard make_scoped_override(nk_bool push_result, nk_bool (*pop_func)(nk_context*))
+	{
+		return scoped_override_guard(m_ctx, push_result ? pop_func : nullptr);
+	}
+
+	void check_style_pointer(const void* p) const
+	{
+		const auto min = static_cast<const void*>(&m_ctx);
+		const auto max = static_cast<const void*>(&m_ctx + 1);
+		NK_ASSERT(min <= p);
+		NK_ASSERT(p < max);
+	}
+
+public:
+	/**
+	 * @name Style
+	 * UNDOCUMENTED
+	 * How scoped overrides work:
+	 * - pass a pointer to an object within this class data
+	 * - pass a value that should override pointed object
+	 * Use get_* functions to obtain access to this data and to get their addresses.
+	 * @{
+	 */
+
+	void style_default()
+	{
+		nk_style_default(&m_ctx);
+	}
+
+	void style_from_table(const color_table& table)
+	{
+		nk_style_from_table(&m_ctx, table.get());
+	}
+
+	void style_from_table(const nk_color (&table)[NK_COLOR_COUNT])
+	{
+		nk_style_from_table(&m_ctx, table);
+	}
+
+	void style_load_cursor(nk_style_cursor cursor, const nk_cursor& c)
+	{
+		nk_style_load_cursor(&m_ctx, cursor, &c);
+	}
+
+	void style_load_all_cursors(nk_cursor (&cursors)[NK_CURSOR_COUNT])
+	{
+		nk_style_load_all_cursors(&m_ctx, cursors);
+	}
+
+	[[nodiscard]] static const char* style_get_color_name(nk_style_colors c)
+	{
+		return nk_style_get_color_by_name(c);
+	}
+
+	void style_set_font(const nk_user_font& font)
+	{
+		nk_style_set_font(&m_ctx, &font);
+	}
+
+	[[nodiscard]] bool style_set_cursor(enum nk_style_cursor cursor)
+	{
+		return nk_style_set_cursor(&m_ctx, cursor) == nk_true;
+	}
+
+	void style_show_cursor()
+	{
+		nk_style_show_cursor(&m_ctx);
+	}
+
+	void style_hide_cursor()
+	{
+		nk_style_hide_cursor(&m_ctx);
+	}
+
+	[[nodiscard]] scoped_override_guard style_scoped_font(const nk_user_font& font)
+	{
+		return make_scoped_override(nk_style_push_font(&m_ctx, &font), &nk_style_pop_font);
+	}
+
+	[[nodiscard]] scoped_override_guard style_push_float(float* p, float value)
+	{
+		check_style_pointer(p);
+		return make_scoped_override(nk_style_push_float(&m_ctx, p, value), &nk_style_pop_float);
+	}
+
+	[[nodiscard]] scoped_override_guard style_push_vec2(struct nk_vec2* p, struct nk_vec2 value)
+	{
+		check_style_pointer(p);
+		return make_scoped_override(nk_style_push_vec2(&m_ctx, p, value), &nk_style_pop_vec2);
+	}
+
+	[[nodiscard]] scoped_override_guard style_push_style_item(nk_style_item* p, nk_style_item value)
+	{
+		check_style_pointer(p);
+		return make_scoped_override(nk_style_push_style_item(&m_ctx, p, value), &nk_style_pop_style_item);
+	}
+
+	[[nodiscard]] scoped_override_guard style_push_flags(nk_flags* p, nk_flags value)
+	{
+		check_style_pointer(p);
+		return make_scoped_override(nk_style_push_flags(&m_ctx, p, value), &nk_style_pop_flags);
+	}
+
+	[[nodiscard]] scoped_override_guard style_push_color(nk_color* p, nk_color value)
+	{
+		check_style_pointer(p);
+		return make_scoped_override(nk_style_push_color(&m_ctx, p, value), &nk_style_pop_color);
+	}
+
+	///@}
+
+	/**
+	 * @name Public fields of the context struct
+	 * @{
+	 */
+
+	nk_input& get_input() { return m_ctx.input; }
+	const nk_input& get_input() const { return m_ctx.input; }
+
+	nk_style& get_style() { return m_ctx.style; }
+	const nk_style& get_style() const { return m_ctx.style; }
+
+	nk_buffer& get_memory() { return m_ctx.memory; }
+	const nk_buffer& get_memory() const { return m_ctx.memory; }
+
+	nk_clipboard& get_clipboard() { return m_ctx.clip; }
+	const nk_clipboard& get_clipboard() const { return m_ctx.clip; }
+
+	nk_flags& get_last_widget_state() { return m_ctx.last_widget_state; }
+	nk_flags get_last_widget_state() const { return m_ctx.last_widget_state; }
+
+	enum nk_button_behavior& get_button_behavior() { return m_ctx.button_behavior; }
+	enum nk_button_behavior get_button_behavior() const { return m_ctx.button_behavior; }
+
+	nk_configuration_stacks& get_configuration_stacks() { return m_ctx.stacks; }
+	const nk_configuration_stacks& get_configuration_stacks() const { return m_ctx.stacks; }
+
+	float& get_delta_time_seconds() { return m_ctx.delta_time_seconds; }
+	float get_delta_time_seconds() const { return m_ctx.delta_time_seconds; }
 
 	///@}
 
