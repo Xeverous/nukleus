@@ -1112,6 +1112,11 @@ public:
 		clear();
 	}
 
+	/* implicit */ font_atlas(nk_font_atlas atlas, bool initialized = true)
+	: m_atlas(atlas)
+	, m_initialized(initialized)
+	{}
+
 	font_atlas(const font_atlas& other) = delete;
 	font_atlas(font_atlas&& other) noexcept
 	{
@@ -1345,6 +1350,172 @@ private:
 };
 
 #endif // NK_INCLUDE_FONT_BAKING
+
+///@}
+
+// -------- memory buffer --------
+
+/**
+ * @defgroup memory Raw Memory Buffer
+ * @{
+ */
+
+/**
+ * @brief wraps nk_buffer for convenience
+ * @details A basic (double)-buffer with linear allocation and resetting as only
+ * freeing policy. The buffer's main purpose is to control all memory management
+ * inside the GUI toolkit and still leave memory control as much as possible in
+ * the hand of the user while also making sure the library is easy to use if
+ * not as much control is needed.
+ * In general all memory inside this library can be provided from the user in
+ * three different ways.
+ *
+ * The first way and the one providing most control is by just passing a fixed
+ * size memory block. In this case all control lies in the hand of the user
+ * since he can exactly control where the memory comes from and how much memory
+ * the library should consume. Of course using the fixed size API removes the
+ * ability to automatically resize a buffer if not enough memory is provided so
+ * you have to take over the resizing. While being a fixed sized buffer sounds
+ * quite limiting, it is very effective in this library since the actual memory
+ * consumption is quite stable and has a fixed upper bound for a lot of cases.
+ *
+ * If you don't want to think about how much memory the library should allocate
+ * at all time or have a very dynamic UI with unpredictable memory consumption
+ * habits but still want control over memory allocation you can use the dynamic
+ * allocator based API. The allocator consists of two callbacks for allocating
+ * and freeing memory and optional userdata so you can plugin your own allocator.
+ *
+ * The final and easiest way can be used by defining
+ * `NK_INCLUDE_DEFAULT_ALLOCATOR` which uses the standard library memory
+ * allocation functions malloc and free and takes over complete control over
+ * memory in this library.
+ */
+class buffer
+{
+public:
+	/**
+	 * @name Construction
+	 * @{
+	 */
+
+	/* implicit */ buffer(nk_buffer buf, bool initialized = true)
+	: m_buffer(buf)
+	, m_initialized(initialized)
+	{}
+
+	buffer(const buffer& other) = delete;
+	buffer(buffer&& other) noexcept
+	{
+		swap(*this, other);
+	}
+
+	buffer& operator=(const buffer& other) = delete;
+	buffer& operator=(buffer&& other) noexcept
+	{
+		swap(*this, other);
+		return *this;
+	}
+
+	~buffer()
+	{
+		free();
+	}
+
+#ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
+	static buffer init_default()
+	{
+		buffer buf;
+		nk_buffer_init_default(&buf.m_buffer);
+		buf.m_initialized = true;
+		return buf;
+	}
+#endif
+
+	static buffer init(const nk_allocator& alloc, nk_size size)
+	{
+		buffer buf;
+		nk_buffer_init(&buf.m_buffer, &alloc, size);
+		buf.m_initialized = true;
+		return buf;
+	}
+
+	static buffer init_fixed(void* memory, nk_size size)
+	{
+		buffer buf;
+		nk_buffer_init_fixed(&buf.m_buffer, memory, size);
+		buf.m_initialized = true;
+		return buf;
+	}
+
+	///@}
+
+	/**
+	 * @name Buffer Management
+	 * @{
+	 */
+
+	nk_memory_status info() // TODO const qualifier
+	{
+		nk_memory_status status;
+		nk_buffer_info(&status, &m_buffer);
+		return status;
+	}
+
+	nk_size total() // TODO const qualifier
+	{
+		return nk_buffer_total(&m_buffer);
+	}
+
+	void push(nk_buffer_allocation_type type, const void* memory, nk_size size, nk_size align)
+	{
+		nk_buffer_push(&m_buffer, type, memory, size, align);
+	}
+
+	void mark(nk_buffer_allocation_type type)
+	{
+		nk_buffer_mark(&m_buffer, type);
+	}
+
+	void reset(nk_buffer_allocation_type type)
+	{
+		nk_buffer_reset(&m_buffer, type);
+	}
+
+	void clear()
+	{
+		nk_buffer_clear(&m_buffer);
+	}
+
+	void free()
+	{
+		if (!m_initialized)
+			return;
+
+		nk_buffer_free(&m_buffer);
+		m_initialized = false;
+	}
+
+	///@}
+
+	/**
+	 * @name Access
+	 * @{
+	 */
+
+	      void* memory()       { return nk_buffer_memory(&m_buffer); }
+	const void* memory() const { return nk_buffer_memory_const(&m_buffer); }
+
+	      nk_buffer& get_buffer()       { return m_buffer; }
+	const nk_buffer& get_buffer() const { return m_buffer; }
+
+	///@}
+
+private:
+	buffer() = default;
+
+	nk_buffer m_buffer = {};
+	bool m_initialized = false;
+};
 
 ///@}
 
