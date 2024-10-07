@@ -1421,6 +1421,15 @@ public:
 		free();
 	}
 
+	void free()
+	{
+		if (!m_initialized)
+			return;
+
+		nk_buffer_free(&m_buffer);
+		m_initialized = false;
+	}
+
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
 	static buffer init_default()
 	{
@@ -1486,15 +1495,6 @@ public:
 		nk_buffer_clear(&m_buffer);
 	}
 
-	void free()
-	{
-		if (!m_initialized)
-			return;
-
-		nk_buffer_free(&m_buffer);
-		m_initialized = false;
-	}
-
 	///@}
 
 	/**
@@ -1514,6 +1514,434 @@ private:
 	buffer() = default;
 
 	nk_buffer m_buffer = {};
+	bool m_initialized = false;
+};
+
+/**
+ * @brief wraps nk_str for convenience
+ * @details Basic string buffer which is only used in context with the text editor
+ * to manage and manipulate dynamic or fixed size string content. This is NOT
+ * the default string handling method. The only instance you should have any contact
+ * with this API is if you interact with an `nk_text_edit` object inside one of the
+ * copy and paste functions and even there only for more advanced cases.
+ */
+class string_buffer
+{
+public:
+	/**
+	 * @name Construction
+	 * @{
+	 */
+
+	/* implicit */ string_buffer(nk_str str, bool initialized = true)
+	: m_str(str)
+	, m_initialized(initialized)
+	{}
+
+	string_buffer(const string_buffer& other) = delete;
+	string_buffer(string_buffer&& other) noexcept
+	{
+		swap(*this, other);
+	}
+
+	string_buffer& operator=(const string_buffer& other) = delete;
+	string_buffer& operator=(string_buffer&& other) noexcept
+	{
+		swap(*this, other);
+		return *this;
+	}
+
+	~string_buffer()
+	{
+		free();
+	}
+
+	void free()
+	{
+		if (!m_initialized)
+			return;
+
+		nk_str_free(&m_str);
+		m_initialized = false;
+	}
+
+#ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
+	static string_buffer init_default()
+	{
+		string_buffer str;
+		nk_str_init_default(&str.m_str);
+		str.m_initialized = true;
+		return str;
+	}
+#endif
+
+	static string_buffer init(const nk_allocator& alloc, nk_size size)
+	{
+		string_buffer str;
+		nk_str_init(&str.m_str, &alloc, size);
+		str.m_initialized = true;
+		return str;
+	}
+
+	static string_buffer init_fixed(void* memory, nk_size size)
+	{
+		string_buffer str;
+		nk_str_init_fixed(&str.m_str, memory, size);
+		str.m_initialized = true;
+		return str;
+	}
+
+	///@}
+
+	/**
+	 * @name Management
+	 * @{
+	 */
+
+	void clear()
+	{
+		nk_str_clear(&m_str);
+	}
+
+	int append_text_char(const char* text, int len)
+	{
+		return nk_str_append_text_char(&m_str, text, len);
+	}
+
+	int append_str_char(const char* str)
+	{
+		return nk_str_append_str_char(&m_str, str);
+	}
+
+	int append_text_utf8(const char* text, int len)
+	{
+		return nk_str_append_text_utf8(&m_str, text, len);
+	}
+
+	int append_str_utf8(const char* str)
+	{
+		return nk_str_append_str_utf8(&m_str, str);
+	}
+
+	int append_text_runes(struct nk_str*, const nk_rune* text, int len)
+	{
+		return nk_str_append_text_runes(&m_str, text, len);
+	}
+
+	int append_str_runes(const nk_rune* str)
+	{
+		return nk_str_append_str_runes(&m_str, str);
+	}
+
+	int insert_at_char(int pos, const char* text, int len)
+	{
+		return nk_str_insert_at_char(&m_str, pos, text, len);
+	}
+
+	int insert_at_rune(int pos, const char* text, int len)
+	{
+		return nk_str_insert_at_rune(&m_str, pos, text, len);
+	}
+
+	int insert_text_char(int pos, const char* text, int len)
+	{
+		return nk_str_insert_text_char(&m_str, pos, text, len);
+	}
+
+	int insert_str_char(int pos, const char* str)
+	{
+		return nk_str_insert_str_char(&m_str, pos, str);
+	}
+
+	int insert_text_utf8(int pos, const char* text, int len)
+	{
+		return nk_str_insert_text_utf8(&m_str, pos, text, len);
+	}
+
+	int insert_str_utf8(int pos, const char* str)
+	{
+		return nk_str_insert_str_utf8(&m_str, pos, str);
+	}
+
+	int insert_text_runes(int pos, const nk_rune* text, int len)
+	{
+		return nk_str_insert_text_runes(&m_str, pos, text, len);
+	}
+
+	int insert_str_runes(struct nk_str*, int pos, const nk_rune* str)
+	{
+		return nk_str_insert_str_runes(&m_str, pos, str);
+	}
+
+	void remove_chars(int len)
+	{
+		nk_str_remove_chars(&m_str, len);
+	}
+
+	void remove_runes(int len)
+	{
+		nk_str_remove_runes(&m_str, len);
+	}
+
+	void delete_chars(int pos, int len)
+	{
+		nk_str_delete_chars(&m_str, pos, len);
+	}
+
+	void delete_runes(int pos, int len)
+	{
+		nk_str_delete_runes(&m_str, pos, len);
+	}
+
+	char* at_char(int pos)
+	{
+		return nk_str_at_char(&m_str, pos);
+	}
+
+	const char* at_char(int pos) const
+	{
+		return nk_str_at_char_const(&m_str, pos);
+	}
+
+	char* at_rune(int pos, nk_rune& unicode, int& len)
+	{
+		return nk_str_at_rune(&m_str, pos, &unicode, &len);
+	}
+
+	const char* at_rune(int pos, nk_rune& unicode, int& len) const
+	{
+		// nuklear's name is inconsistent here, should be nk_str_at_rune_const
+		return nk_str_at_const(&m_str, pos, &unicode, &len);
+	}
+
+	nk_rune rune_at(int pos) const
+	{
+		return nk_str_rune_at(&m_str, pos);
+	}
+
+	char* get()
+	{
+		return nk_str_get(&m_str);
+	}
+
+	const char* get() const
+	{
+		return nk_str_get_const(&m_str);
+	}
+
+	int len() // TODO const
+	{
+		return nk_str_len(&m_str);
+	}
+
+	int len_char() // TODO const
+	{
+		return nk_str_len_char(&m_str);
+	}
+
+	      nk_str& get_str()       { return m_str; }
+	const nk_str& get_str() const { return m_str; }
+
+	///@}
+
+private:
+	string_buffer() = default;
+
+	nk_str m_str = {};
+	bool m_initialized = false;
+};
+
+/**
+ * @brief Text Editor, wraps nk_text_edit for convenience
+ * @details Editing text in this library is handled by either @ref window::edit_string or
+ * @ref window::edit_buffer. But like almost everything in this library there are multiple
+ * ways of doing it and a balance between control and ease of use with memory
+ * as well as functionality controlled by flags.
+ *
+ * This library generally allows three different levels of memory control:
+ * First of is the most basic way of just providing a simple char array with
+ * string length. This method is probably the easiest way of handling simple
+ * user text input. Main upside is complete control over memory while the biggest
+ * downside in comparison with the other two approaches is missing undo/redo.
+ *
+ * For UIs that require undo/redo the second way was created. It is based on
+ * a fixed size `nk_text_edit` struct, which has an internal undo/redo stack.
+ * This is mainly useful if you want something more like a text editor but don't want
+ * to have a dynamically growing buffer.
+ *
+ * The final way is using a dynamically growing struct, which
+ * has both a default version if you don't care where memory comes from and an
+ * allocator version if you do. While the text editor is quite powerful for its
+ * complexity I would not recommend editing gigabytes of data with it.
+ * It is rather designed for uses cases which make sense for a GUI library not for
+ * a full blown text editor.
+ * @attention You may want to define `NK_TEXTEDIT_UNDOSTATECOUNT` and
+ * `NK_TEXTEDIT_UNDOCHARCOUNT` if default limits do not meet your needs.
+ */
+class text_edit
+{
+public:
+	/**
+	 * @name Construction
+	 * @{
+	 */
+
+	/* implicit */ text_edit(nk_text_edit state, bool initialized = true)
+	: m_state(state)
+	, m_initialized(initialized)
+	{}
+
+	text_edit(const text_edit& other) = delete;
+	text_edit(text_edit&& other) noexcept
+	{
+		swap(*this, other);
+	}
+
+	text_edit& operator=(const text_edit& other) = delete;
+	text_edit& operator=(text_edit&& other) noexcept
+	{
+		swap(*this, other);
+		return *this;
+	}
+
+	~text_edit()
+	{
+		free();
+	}
+
+	void free()
+	{
+		if (!m_initialized)
+			return;
+
+		nk_textedit_free(&m_state);
+		m_initialized = false;
+	}
+
+#ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
+	static text_edit init_default()
+	{
+		text_edit state;
+		nk_textedit_init_default(&state.m_state);
+		state.m_initialized = true;
+		return state;
+	}
+#endif
+
+	static text_edit init(const nk_allocator& alloc, nk_size size)
+	{
+		text_edit state;
+		nk_textedit_init(&state.m_state, &alloc, size);
+		state.m_initialized = true;
+		return state;
+	}
+
+	static text_edit init_fixed(void* memory, nk_size size)
+	{
+		text_edit state;
+		nk_textedit_init_fixed(&state.m_state, memory, size);
+		state.m_initialized = true;
+		return state;
+	}
+
+	///@}
+
+	/**
+	 * @name Filtering
+	 * @{
+	 */
+
+	[[nodiscard]] bool filter_default(nk_rune unicode) const
+	{
+		return nk_filter_default(&m_state, unicode) == nk_true;
+	}
+
+	[[nodiscard]] bool filter_ascii(nk_rune unicode) const
+	{
+		return nk_filter_ascii(&m_state, unicode) == nk_true;
+	}
+
+	[[nodiscard]] bool filter_float(nk_rune unicode) const
+	{
+		return nk_filter_float(&m_state, unicode) == nk_true;
+	}
+
+	[[nodiscard]] bool filter_decimal(nk_rune unicode) const
+	{
+		return nk_filter_decimal(&m_state, unicode) == nk_true;
+	}
+
+	[[nodiscard]] bool filter_hex(nk_rune unicode) const
+	{
+		return nk_filter_hex(&m_state, unicode) == nk_true;
+	}
+
+	[[nodiscard]] bool filter_oct(nk_rune unicode) const
+	{
+		return nk_filter_oct(&m_state, unicode) == nk_true;
+	}
+
+	[[nodiscard]] bool filter_binary(nk_rune unicode) const
+	{
+		return nk_filter_binary(&m_state, unicode) == nk_true;
+	}
+
+	///@}
+
+	/**
+	 * @name Editing
+	 * @{
+	 */
+
+	void text(const char* text, int total_len)
+	{
+		nk_textedit_text(&m_state, text, total_len);
+	}
+
+	void delete_at(int where, int len) // can not be named "delete" - clash with keyword
+	{
+		nk_textedit_delete(&m_state, where, len);
+	}
+
+	void delete_selection()
+	{
+		nk_textedit_delete_selection(&m_state);
+	}
+
+	void select_all()
+	{
+		nk_textedit_select_all(&m_state);
+	}
+
+	[[nodiscard]] bool cut()
+	{
+		return nk_textedit_cut(&m_state) == nk_true;
+	}
+
+	[[nodiscard]] bool paste(const char* text, int len)
+	{
+		return nk_textedit_paste(&m_state, text, len) == nk_true;
+	}
+
+	void undo()
+	{
+		nk_textedit_undo(&m_state);
+	}
+
+	void redo()
+	{
+		nk_textedit_redo(&m_state);
+	}
+
+	      nk_text_edit& get_state()       { return m_state; }
+	const nk_text_edit& get_state() const { return m_state; }
+
+	///@}
+
+private:
+	text_edit() = default;
+
+	nk_text_edit m_state = {};
 	bool m_initialized = false;
 };
 
@@ -2636,6 +3064,177 @@ public:
 };
 
 /**
+ * @brief Drawing Canvas (non-owning wrapper of `nk_command_buffer`)
+ * @details This library was designed to be render backend agnostic so it does
+ * not draw anything to screen. Instead all drawn shapes, widgets
+ * are made of, are buffered into memory and make up a command queue.
+ * Each frame therefore fills the command buffer with draw commands
+ * that then need to be executed by the user and his own render backend.
+ * After that the command buffer needs to be cleared and a new frame can be
+ * started. It is probably important to note that the command buffer is the main
+ * drawing API and the optional vertex buffer API only takes this format and
+ * converts it into a hardware accessible format.
+ *
+ * To use the command queue to draw your own widgets you can access the
+ * command buffer of each window by calling @ref window::get_canvas.
+ *
+ * ```cpp
+ * void draw_red_rectangle_widget(nk::window& window)
+ * {
+ *     nk::rect<float> space;
+ *     const nk::widget_layout_states state = window.widget(space);
+ *
+ *     if (state == NK_WIDGET_INVALID)
+ *         return;
+ *
+ *     if (state != NK_WIDGET_ROM)
+ *         update_your_widget_by_user_input(...);
+ *
+ *     auto canvas = window.get_canvas();
+ *     canvas.fill_rect(space, 0, nk::color(255, 0, 0));
+ * }
+ *
+ * if (auto window = ctx.scoped_xxx(...); window) {
+ *     window.row_dynamic(25, 1);
+ *     draw_red_rectangle_widget(window);
+ * }
+ * ```
+ * Important to know if you want to create your own widgets is the @ref window::widget call.
+ * It allocates space on the panel reserved for the widget to be used.
+ * See function documentation for more details.
+ */
+class canvas
+{
+public:
+	/* implicit */ canvas(nk_command_buffer& cmd_buf)
+	: m_cmd_buf(&cmd_buf)
+	{}
+
+	      nk_command_buffer& get()       { return *m_cmd_buf; }
+	const nk_command_buffer& get() const { return *m_cmd_buf; }
+
+	/**
+	 * @name Shape Outlines
+	 * @{
+	 */
+
+	void stroke_line(float x0, float y0, float x1, float y1, float line_thickness, color c)
+	{
+		nk_stroke_line(m_cmd_buf, x0, y0, x1, y1, line_thickness, c);
+	}
+
+	void stroke_curve(float ax, float ay, float ctrl0x, float ctrl0y, float ctrl1x, float ctrl1y, float bx, float by, float line_thickness, color c)
+	{
+		nk_stroke_curve(m_cmd_buf, ax, ay, ctrl0x, ctrl0y, ctrl1x, ctrl1y, bx, by, line_thickness, c);
+	}
+
+	void stroke_rect(rect<float> r, float rounding, float line_thickness, color c)
+	{
+		nk_stroke_rect(m_cmd_buf, r, rounding, line_thickness, c);
+	}
+
+	void stroke_circle(rect<float> r, float line_thickness, color c)
+	{
+		nk_stroke_circle(m_cmd_buf, r, line_thickness, c);
+	}
+
+	void stroke_arc(float cx, float cy, float radius, float a_min, float a_max, float line_thickness, color c)
+	{
+		nk_stroke_arc(m_cmd_buf, cx, cy, radius, a_min, a_max, line_thickness, c);
+	}
+
+	void stroke_triangle(float x0, float y0, float x1, float y1, float x2, float y2, float line_thickness, color c)
+	{
+		nk_stroke_triangle(m_cmd_buf, x0, y0, x1, y1, x2, y2, line_thickness, c);
+	}
+
+	void stroke_polyline(float* points, int point_count, float line_thickness, color c) // TODO const pointer
+	{
+		nk_stroke_polyline(m_cmd_buf, points, point_count, line_thickness, c);
+	}
+
+	void stroke_polygon(float* points, int point_count, float line_thickness, color c) // TODO const pointer
+	{
+		nk_stroke_polygon(m_cmd_buf, points, point_count, line_thickness, c);
+	}
+
+	///@}
+
+	/**
+	 * @name Filled Shapes
+	 * @{
+	 */
+
+	void fill_rect(rect<float> r, float rounding, color c)
+	{
+		nk_fill_rect(m_cmd_buf, r, rounding, c);
+	}
+
+	void fill_rect_multi_color(rect<float> r, color left, color top, color right, color bottom)
+	{
+		nk_fill_rect_multi_color(m_cmd_buf, r, left, top, right, bottom);
+	}
+
+	void fill_circle(rect<float> r, color c)
+	{
+		nk_fill_circle(m_cmd_buf, r, c);
+	}
+
+	void fill_arc(float cx, float cy, float radius, float a_min, float a_max, color c)
+	{
+		nk_fill_arc(m_cmd_buf, cx, cy, radius, a_min, a_max, c);
+	}
+
+	void fill_triangle(float x0, float y0, float x1, float y1, float x2, float y2, color c)
+	{
+		nk_fill_triangle(m_cmd_buf, x0, y0, x1, y1, x2, y2, c);
+	}
+
+	void fill_polygon(float* points, int point_count, color c) // TODO const pointer
+	{
+		nk_fill_polygon(m_cmd_buf, points, point_count, c);
+	}
+
+	///@}
+
+	/**
+	 * @name Other
+	 * @{
+	 */
+
+	void draw_image(rect<float> r, const image& img, color c)
+	{
+		nk_draw_image(m_cmd_buf, r, &img, c);
+	}
+
+	void draw_nine_slice(rect<float> r, const nk_nine_slice& slc, color c)
+	{
+		nk_draw_nine_slice(m_cmd_buf, r, &slc, c);
+	}
+
+	void draw_text(rect<float> r, const char* text, int len, const nk_user_font& font, color bg, color fg)
+	{
+		nk_draw_text(m_cmd_buf, r, text, len, &font, bg, fg);
+	}
+
+	void push_scissor(rect<float> r)
+	{
+		nk_push_scissor(m_cmd_buf, r);
+	}
+
+	// TODO better function abstraction and also why cb takes `void* canvas` (why void)?
+	void push_custom(rect<float> r, nk_command_custom_callback cb, nk_handle usr)
+	{
+		nk_push_custom(m_cmd_buf, r, cb, usr);
+	}
+
+	///@}
+
+private:
+	nk_command_buffer* m_cmd_buf;
+};
+
+/**
  * @brief Window
  * Windows are the main persistent state used inside nuklear and are life time
  * controlled by simply "retouching" (i.e. calling) each window each frame.
@@ -3633,6 +4232,18 @@ public:
 	 * @{
 	 */
 
+	/**
+	 * @brief Allocates space on the panel reserved for this widget to be used.
+	 * @param bounds widget bounds
+	 * @return the state of the widget space
+	 * @details Return value should dictate further action:
+	 * - `NK_WIDGET_INVALID`: widget is not seen and does not have to be updated or drawn
+	 * - `NK_WIDGET_ROM`: widget is only (partially) visible - draw but don't update
+	 * - other: do drawing and update
+	 *
+	 * The reason for it is to only draw and update what is
+	 * actually necessary which is crucial for performance.
+	 */
 	widget_layout_states widget(rect<float>& bounds) const
 	{
 		struct nk_rect r{};
