@@ -155,14 +155,14 @@
 
 /*
 TODO possible improvements:
-- deduplicate docs for function parameters with same name
 - document each blank function that should not be used
 - LIST VIEW (3089): nk_list_view_begin, nk_list_view_end - not implemented - no docs and no examples
 - COMBOBOX - unclear overloads, const issues
 - IMAGE, 9-SLICE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
-- think whether it would make sense to implement point+extent (even further from nk math types)
+- think whether it would make sense to implement point+extent (or even further a full overloaded operator API)
 - UTF-8 - undocumented
+- DRAW LIST - uncodumented, no examples
 */
 
 namespace nk {
@@ -910,6 +910,26 @@ public:
 private:
 	nk_color m_table[NK_COLOR_COUNT] = {};
 };
+
+inline nk_style_item style_item_color(color c)
+{
+	return nk_style_item_color(c);
+}
+
+inline nk_style_item style_item_image(image img)
+{
+	return nk_style_item_image(img);
+}
+
+inline nk_style_item style_item_nine_slice(nk_nine_slice slice)
+{
+	return nk_style_item_nine_slice(slice);
+}
+
+inline nk_style_item style_item_hide()
+{
+	return nk_style_item_hide();
+}
 
 ///@}
 
@@ -2382,7 +2402,7 @@ public:
  *
  * Object creation tree:
  * - @ref context
- *   - @ref input
+ *   - @ref event_input
  *   - @ref window
  *     - @ref tree
  *     - @ref layout
@@ -2406,21 +2426,23 @@ public:
  * expects more work from the user and complicates usage but on the other hand
  * provides simple abstraction over a big number of platforms, libraries and other
  * already provided functionality.
- * Input state needs to be provided to nuklear by first calling `nk_input_begin`
+ * Input state needs to be provided to nuklear by first calling @ref context::scoped_input
  * which resets internal state like delta mouse position and button transitions.
- * After `nk_input_begin` all current input state needs to be provided. This includes
+ * After it, all current input state needs to be provided. This includes
  * mouse motion, button and key pressed and released, text input and scrolling.
  * Both event- or state-based input handling are supported by this API
- * and should work without problems. Finally after all input state has been
- * mirrored `nk_input_end` needs to be called to finish input process.
+ * and should work without problems. Finally after all input state has been mirrored
+ * @ref event_input destructor calls internally `nk_input_end` to finish the input process.
+ *
+ * This class is named `event_input` to avoid confusing it with hypothetical `nk_input` struct wrapper.
  */
-class input : public scope_guard
+class event_input : public scope_guard
 {
 public:
 	using scope_guard::scope_guard;
 
 	/**
-	 * @brief Mirrors current mouse position to nuklear
+	 * @brief Mirrors current mouse position to nuklear.
 	 * @param x current mouse cursor x-position
 	 * @param y current mouse cursor y-position
 	 */
@@ -2430,7 +2452,7 @@ public:
 	}
 
 	/**
-	 * @brief Mirrors the state of a specific key to nuklear
+	 * @brief Mirrors the state of a specific key to nuklear.
 	 * @param key any value specified in enum nk_keys that needs to be mirrored
 	 * @param down false for key being up and true for key being down
 	 */
@@ -2440,7 +2462,7 @@ public:
 	}
 
 	/**
-	 * @brief Mirrors the state of a specific mouse button to nuklear
+	 * @brief Mirrors the state of a specific mouse button to nuklear.
 	 * @param button any value specified in enum nk_buttons that needs to be mirrored
 	 * @param x mouse cursor x-position on click up/down
 	 * @param y mouse cursor y-position on click up/down
@@ -2461,7 +2483,7 @@ public:
 	}
 
 	/**
-	 * @brief Copies a single ASCII character into an internal text buffer
+	 * @brief Copies a single ASCII character into an internal text buffer.
 	 * This is basically a helper function to quickly push ASCII characters into nuklear.
 	 * @param c an ASCII character, preferably one that can be printed
 	 * @attention Stores up to NK_INPUT_MAX bytes between input_begin and input_end.
@@ -3581,14 +3603,14 @@ public:
 	}
 
 	/**
-	 * @brief Return the draw command buffer. Can be used to draw custom widgets.
-	 * @return Pointer to window internal `nk_command_buffer` struct used as drawing canvas. Can be used to do custom drawing.
-	 * @attention Do not keep the returned pointer around, it is only valid until end of window's scope.
+	 * @brief Return window's canvas, which can be used to draw custom widgets.
+	 * @return Canvas object made from pointer to window's internal `nk_command_buffer`.
+	 * @attention Do not keep the returned object around, it is only valid until end of window's scope.
 	 */
-	[[nodiscard]] nk_command_buffer* get_canvas() &
+	[[nodiscard]] canvas get_canvas() &
 	{
 		NK_ASSERT(m_valid);
-		return nk_window_get_canvas(&get_context());
+		return *nk_window_get_canvas(&get_context());
 	}
 
 	/**
@@ -5375,17 +5397,98 @@ public:
 
 	/**
 	 * @name Input
+	 * Input getters should be used after the end of scoped input.
 	 * @{
 	 */
 
 	/**
-	 * @brief Start scoped input. input_end is called automatically at the end of scope.
-	 * @return input object, offering access to input functions
+	 * @brief Start scoped input. `nk_input_end` is called automatically at the end of scope.
+	 * @return input scope guard object, offering access to input functions
 	 */
-	[[nodiscard]] input scoped_input() &
+	[[nodiscard]] event_input scoped_input() &
 	{
 		nk_input_begin(&m_ctx);
-		return input(m_ctx, nk_input_end);
+		return event_input(m_ctx, nk_input_end);
+	}
+
+	bool input_has_mouse_click(nk_buttons id) const
+	{
+		return nk_input_has_mouse_click(&m_ctx.input, id) == nk_true;
+	}
+
+	bool input_has_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_has_mouse_click_in_rect(&m_ctx.input, id, bounds) == nk_true;
+	}
+
+	bool input_has_mouse_click_in_button_rect(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_has_mouse_click_in_button_rect(&m_ctx.input, id, bounds) == nk_true;
+	}
+
+	bool input_has_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
+	{
+		return nk_input_has_mouse_click_down_in_rect(&m_ctx.input, id, bounds, down) == nk_true;
+	}
+
+	bool input_is_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_is_mouse_click_in_rect(&m_ctx.input, id, bounds) == nk_true;
+	}
+
+	bool input_is_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
+	{
+		return nk_input_is_mouse_click_down_in_rect(&m_ctx.input, id, bounds, down) == nk_true;
+	}
+
+	bool input_any_mouse_click_in_rect(rect<float> bounds) const
+	{
+		return nk_input_any_mouse_click_in_rect(&m_ctx.input, bounds) == nk_true;
+	}
+
+	bool input_is_mouse_prev_hovering_rect(rect<float> bounds) const
+	{
+		return nk_input_is_mouse_prev_hovering_rect(&m_ctx.input, bounds) == nk_true;
+	}
+
+	bool input_is_mouse_hovering_rect(rect<float> bounds) const
+	{
+		return nk_input_is_mouse_hovering_rect(&m_ctx.input, bounds) == nk_true;
+	}
+
+	bool input_mouse_clicked(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_mouse_clicked(&m_ctx.input, id, bounds) == nk_true;
+	}
+
+	bool input_is_mouse_down(nk_buttons id) const
+	{
+		return nk_input_is_mouse_down(&m_ctx.input, id) == nk_true;
+	}
+
+	bool input_is_mouse_pressed(nk_buttons id) const
+	{
+		return nk_input_is_mouse_pressed(&m_ctx.input, id) == nk_true;
+	}
+
+	bool input_is_mouse_released(nk_buttons id) const
+	{
+		return nk_input_is_mouse_released(&m_ctx.input, id) == nk_true;
+	}
+
+	bool input_is_key_pressed(nk_keys key) const
+	{
+		return nk_input_is_key_pressed(&m_ctx.input, key) == nk_true;
+	}
+
+	bool input_is_key_released(nk_keys key) const
+	{
+		return nk_input_is_key_released(&m_ctx.input, key) == nk_true;
+	}
+
+	bool input_is_key_down(nk_keys key) const
+	{
+		return nk_input_is_key_down(&m_ctx.input, key) == nk_true;
 	}
 
 	///@}
