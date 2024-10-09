@@ -167,15 +167,16 @@ TODO possible improvements:
 
 namespace nk {
 
-// -------- type traits --------
+/**
+ * @defgroup stdlib Standard Library elements
+ * @{
+ */
 
 /**
  * @defgroup type_traits Type Traits
  * @brief Implementation of some traits to avoid including \<type_traits\>.
  * @{
  */
-
-// ---- detection traits ----
 
 /**
  * @defgroup detection_traits Detection Traits
@@ -214,9 +215,7 @@ template <typename>   struct is_volatile             : false_type {};
 template <typename T> struct is_volatile<volatile T> : true_type {};
 template <typename T> constexpr bool is_volatile_v = is_volatile<T>::value;
 
-///@}
-
-// ---- transformation traits ----
+///@} // detection_traits
 
 /**
  * @defgroup transformation_traits Transformation Traits
@@ -237,9 +236,7 @@ template <typename T> using remove_cv_t = typename remove_cv<T>::type;
 template <typename T> struct remove_cvref { using type = remove_cv_t<remove_reference_t<T>>; };
 template <typename T> using remove_cvref_t = typename remove_cvref<T>::type;
 
-///@}
-
-// ---- meta traits ----
+///@} // transformation_traits
 
 /**
  * @defgroup meta_traits Meta Traits
@@ -253,11 +250,9 @@ template <bool B, typename T = void> using enable_if_t = typename enable_if<B, T
 template <typename... Ts> struct void_t_impl { using type = void; };
 template <typename... Ts> using void_t = typename void_t_impl<Ts...>::type;
 
-///@}
+///@} // meta_traits
 
-///@}
-
-// -------- utility --------
+///@} // type_traits
 
 /**
  * @defgroup utility Utility functions
@@ -347,104 +342,144 @@ struct output_bool
 
 }
 
-///@}
+///@} // utility
 
-// -------- string utilities --------
+///@} // stdlib
 
 /**
- * @defgroup str_utility String utility functions
+ * @defgroup basic Basic
  * @{
  */
 
 /**
- * @brief Return string length in bytes
- * @param str string to check
- * @return length in bytes (excluding '\0')
- */
-inline int strlen(const char* str) { return nk_strlen(str); }
-
-/**
- * @brief String compare, case insensitive
- * @param s1 first string
- * @param s2 second string
- * @return <0 if s1 < s2, 0 is s1 == s2, >0 if s1 > s2
- */
-inline int stricmp(const char* s1, const char* s2) { return nk_stricmp(s1, s2); }
-
-/**
- * @copydoc stricmp
- * @param n max number of characters to compare
- */
-inline int stricmpn(const char* s1, const char* s2, int n) { return nk_stricmpn(s1, s2, n); }
-
-/**
- * @brief string to int
- * @param str string to convert
- * @return value or 0 if convertion failed
- * @details this function skips second `nk_strtoi` parameter due to API stability issue caused by const
- */
-inline int strtoi(const char* str) { return nk_strtoi(str, nullptr); }
-
-/**
- * @brief string to float
- * @param str string to convert
- * @return value or 0 if convertion failed
- * @details this function skips second `nk_strtof` parameter due to API stability issue caused by const
- */
-inline float strtof(const char* str) { return nk_strtof(str, nullptr); }
-
-#ifndef NK_STRTOD
-/**
- * @brief string to double
- * @param str string to convert
- * @return value or 0 if convertion failed
- * @details this function skips second `nk_strtod` parameter due to API stability issue caused by const
- */
-inline double strtod(const char* str) { return nk_strtod(str, nullptr); }
-#endif
-
-// TODO this is undocumented (implements very narrow set of regex operators)
-// strfilter(const char* text, const char* regexp);
-
-/**
- * @brief perform fuzzy string search
- * @param str string to search within
- * @param pattern pattern to find
- * @param out_score set if pattern is found, has no intrinsic meaning, comparison only makes sense with same search pattern
- * @return true if each character in pattern is found sequentially within @p str
- */
-inline bool strmatch_fuzzy_string(char const* str, char const* pattern, int* out_score = nullptr)
-{
-	return nk_strmatch_fuzzy_string(str, pattern, out_score) == nk_true;
-}
-
-/**
- * @param str_len length of @p str
- * @copydoc strmatch_fuzzy_string
- */
-inline bool strmatch_fuzzy_text(const char* str, int str_len, const char* pattern, int* out_score = nullptr)
-{
-	return nk_strmatch_fuzzy_text(str, str_len, pattern, out_score) == nk_true;
-}
-
-///@}
-
-// -------- basic types --------
-
-/**
- * @defgroup basic_type Basic Types
- * @brief Additional types to complement Nuklear.
- * @details Nukleus types are implicitly convertible to/from Nuklear types if possible.
+ * @defgroup types Types and Aliases
  * @{
  */
 
 using byte = nk_byte;
 using hash = nk_hash;
 
+using color_format = nk_color_format;
+using image = struct nk_image;
+using symbol_type = nk_symbol_type;
+using heading = nk_heading;
+
+using widget_layout_states = nk_widget_layout_states;
+using buttons = nk_buttons;
+using text_align = nk_text_align;
+using style_button = nk_style_button;
+using button_behavior = enum nk_button_behavior;
+
+///@} // types
+
+/**
+ * @defgroup math Math
+ * @details Nukleus math types are implicitly convertible to/from Nuklear types if possible.
+ * @{
+ */
+
+/**
+ * @brief 2D vector type mirroring `nk_vec2(i)`, implicitly convertible to/from Nuklear's types
+ * @tparam T storage type
+ */
+template <typename T>
+struct vec2
+{
+	vec2() = default;
+
+	vec2(T x, T y)
+	: x(x), y(y)
+	{}
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	vec2(struct nk_vec2 v)
+	: x(v.x), y(v.y)
+	{}
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	vec2(struct nk_vec2i v)
+	: x(v.x), y(v.y)
+	{}
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	operator struct nk_vec2() const { return {x, y}; }
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	operator struct nk_vec2i() const { return {x, y}; }
+
+	T x{};
+	T y{};
+};
+
+/**
+ * @brief Rectangle type mirroring `nk_rect(i)`, implicitly convertible to/from Nuklear's types
+ * @tparam T storage type
+ */
+template <typename T>
+struct rect
+{
+	rect() = default;
+
+	rect(T x, T y, T w, T h)
+	: x(x), y(y), w(w), h(h)
+	{}
+
+	rect(vec2<T> pos, vec2<T> size)
+	: x(pos.x), y(pos.y), w(size.x), h(size.y)
+	{}
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	rect(struct nk_rect r)
+	: x(r.x), y(r.y), w(r.w), h(r.h)
+	{}
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	rect(struct nk_recti r)
+	: x(r.x), y(r.y), w(r.w), h(r.h)
+	{}
+
+	vec2<T> pos() const { return {x, y}; }
+	vec2<T> size() const { return {w, h}; }
+
+	template <enable_if<is_same_v<T, float>>* = nullptr>
+	operator struct nk_rect() const { return {x, y, w, h}; }
+
+	template <enable_if<is_same_v<T, short>>* = nullptr>
+	operator struct nk_recti() const { return {x, y, w, h}; }
+
+	T x{};
+	T y{};
+	T w{};
+	T h{};
+};
+
+template <typename T>
+struct triangle
+{
+	vec2<T> a;
+	vec2<T> b;
+	vec2<T> c;
+};
+
+inline triangle<float> triangle_from_direction(rect<float> r, float pad_x, float pad_y, heading direction)
+{
+	struct nk_vec2 result[3];
+	nk_triangle_from_direction(result, r, pad_x, pad_y, direction);
+	return {result[0], result[1], result[2]};
+}
+
 inline hash murmur_hash(const void* data, int len, hash seed)
 {
 	return nk_murmur_hash(data, len, seed);
 }
+
+///@} // math
+
+/**
+ * @defgroup color Color and Styling
+ * @details Nukleus color types are implicitly convertible to/from Nuklear types.
+ * @{
+ */
 
 /**
  * @brief RGBA color type with byte storage: [0, 255]
@@ -785,101 +820,6 @@ NK_API void nk_color_hsva_bv(nk_byte *hsva_out, struct nk_color);
 NK_API void nk_color_hsva_fv(float *hsva_out, struct nk_color);
 */
 
-using color_format = nk_color_format;
-using image = struct nk_image;
-using symbol_type = nk_symbol_type;
-using heading = nk_heading;
-
-/**
- * @brief 2D vector type mirroring `nk_vec2(i)`, implicitly convertible to/from Nuklear's types
- * @tparam T storage type
- */
-template <typename T>
-struct vec2
-{
-	vec2() = default;
-
-	vec2(T x, T y)
-	: x(x), y(y)
-	{}
-
-	template <enable_if<is_same_v<T, float>>* = nullptr>
-	vec2(struct nk_vec2 v)
-	: x(v.x), y(v.y)
-	{}
-
-	template <enable_if<is_same_v<T, short>>* = nullptr>
-	vec2(struct nk_vec2i v)
-	: x(v.x), y(v.y)
-	{}
-
-	template <enable_if<is_same_v<T, float>>* = nullptr>
-	operator struct nk_vec2() const { return {x, y}; }
-
-	template <enable_if<is_same_v<T, short>>* = nullptr>
-	operator struct nk_vec2i() const { return {x, y}; }
-
-	T x{};
-	T y{};
-};
-
-/**
- * @brief Rectangle type mirroring `nk_rect(i)`, implicitly convertible to/from Nuklear's types
- * @tparam T storage type
- */
-template <typename T>
-struct rect
-{
-	rect() = default;
-
-	rect(T x, T y, T w, T h)
-	: x(x), y(y), w(w), h(h)
-	{}
-
-	rect(vec2<T> pos, vec2<T> size)
-	: x(pos.x), y(pos.y), w(size.x), h(size.y)
-	{}
-
-	template <enable_if<is_same_v<T, float>>* = nullptr>
-	rect(struct nk_rect r)
-	: x(r.x), y(r.y), w(r.w), h(r.h)
-	{}
-
-	template <enable_if<is_same_v<T, short>>* = nullptr>
-	rect(struct nk_recti r)
-	: x(r.x), y(r.y), w(r.w), h(r.h)
-	{}
-
-	vec2<T> pos() const { return {x, y}; }
-	vec2<T> size() const { return {w, h}; }
-
-	template <enable_if<is_same_v<T, float>>* = nullptr>
-	operator struct nk_rect() const { return {x, y, w, h}; }
-
-	template <enable_if<is_same_v<T, short>>* = nullptr>
-	operator struct nk_recti() const { return {x, y, w, h}; }
-
-	T x{};
-	T y{};
-	T w{};
-	T h{};
-};
-
-/* TODO this actually returns 3 vec2
-inline vec2<float> triangle_from_direction(rect<float> r, float pad_x, float pad_y, heading direction)
-{
-	struct nk_vec2 result[3];
-	nk_triangle_from_direction(&result, r, pad_x, pad_y, direction);
-	return result;
-}
-*/
-
-using widget_layout_states = nk_widget_layout_states;
-using buttons = nk_buttons;
-using text_align = nk_text_align;
-using style_button = nk_style_button;
-using button_behavior = enum nk_button_behavior;
-
 class color_table
 {
 public:
@@ -931,452 +871,505 @@ inline nk_style_item style_item_hide()
 	return nk_style_item_hide();
 }
 
-///@}
-
-// -------- font handling --------
+///@} // color
 
 /**
- * @defgroup font_handling Font Handling
- * @details Font handling in this library was designed to be quite customizable and let
- * you decide what you want to use and what you want to provide. There are three
- * different ways to use the font atlas:
- * 1. (simplest) your font handling scheme. Requires only essential data.
- * 2. Vertex buffer output. Requires only essential data + `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`.
- * 3. (most complex) Nuklear's font baking API. Requires `NK_INCLUDE_FONT_BAKING`.
- *
- * ### (1) Using your own implementation without vertex buffer output
- *
- * The easiest way to do font handling is by just providing a
- * `nk_user_font` struct which only requires the height in pixel of the used
- * font and a callback to calculate the width of a string. This way of handling
- * fonts is best fitted for using the normal draw shape command API where you
- * do all the text drawing yourself and the library does not require any kind
- * of deeper knowledge about which font handling mechanism you use.
- *
- * **Important:** the `nk_user_font` object provided to nuklear has to persist
- * over the complete life time! I know this sucks but it is currently the only
- * way to switch between fonts.
- *
- * ```cpp
- * float your_text_width_calculation(nk_handle handle, float height, const char* text, int len)
- * {
- *     your_font_type* type = handle.ptr;
- *     float text_width = ...;
- *     return text_width;
- * }
- *
- * nk_user_font font;
- * font.userdata.ptr = &your_font_class_or_struct;
- * font.height = your_font_height;
- * font.width = &your_text_width_calculation;
- *
- * auto ctx = context::init_default(font);
- * ```
- *
- * ### (2) Using your own implementation with vertex buffer output
- *
- * While the first approach works fine if you don't want to use the optional
- * vertex buffer output it is not enough if you do. To get font handling working
- * for these cases you have to provide two additional parameters inside `nk_user_font`:
- * - a texture atlas used to draw text as subimages of a bigger font atlas texture
- * - a callback to query a character's glyph information (offset, size, ...)
- *
- * So it is still possible to provide your own font and use the vertex buffer output.
- *
- * ```cpp
- * float your_text_width_calculation(nk_handle handle, float height, const char* text, int len)
- * {
- *     your_font_type* type = handle.ptr;
- *     float text_width = ...;
- *     return text_width;
- * }
- *
- * void query_your_font_glyph(nk_handle handle, float font_height, nk_user_font_glyph* glyph, nk_rune codepoint, nk_rune next_codepoint)
- * {
- *     your_font_type* type = handle.ptr;
- *     glyph.width = ...;
- *     glyph.height = ...;
- *     glyph.xadvance = ...;
- *     glyph.uv[0].x = ...;
- *     glyph.uv[0].y = ...;
- *     glyph.uv[1].x = ...;
- *     glyph.uv[1].y = ...;
- *     glyph.offset.x = ...;
- *     glyph.offset.y = ...;
- * }
- *
- * nk_user_font font;
- * font.userdata.ptr = &your_font_class_or_struct;
- * font.height = your_font_height;
- * font.width = &your_text_width_calculation;
- * font.query = &query_your_font_glyph;
- * font.texture.id = your_font_texture;
- *
- * auto ctx = nk::context::init_default(font);
- * ```
- *
- * ### (3) Nuklear font baker
- *
- * The final approach if you do not have a font handling functionality or don't
- * want to use it in this library is by using the optional font baker.
- * The font baker APIs can be used to create a font plus font atlas texture
- * and can be used with or without the vertex buffer output.
- *
- * It still uses the `nk_user_font` struct and the two different approaches
- * previously stated still work. The font baker is not located inside
- * `nk_context` like all other systems since it can be understood as more of
- * an extension to nuklear and does not really depend on any context state.
- *
- * Font baker needs to be initialized first. If you don't care about memory just call
- * @ref font_atlas::init_default which will allocate all memory from the standard library
- * (requires `NK_INCLUDE_DEFAULT_ALLOCATOR`). If you want to control memory allocation
- * but you don't care if the allocated memory is temporary (which can be freed directly
- * after the baking process is over) or permanent you can call @ref font_atlas::init.
- * If you do care, use @ref font_atlas::init_custom.
- *
- * After successfully initializing the font baker you can add TrueType fonts (`.ttf`)
- * from different sources like memory or files by calling one of the atlas functions.
- * Adding a font will permanently store it with font config and the TTF memory block
- * inside the atlas for later reuse. If you don't want to reuse the font baker
- * (by for example adding additional fonts) you can call @ref font_atlas::cleanup
- * after the baking process is over (after end of @ref font_atlas::end).
- *
- * As soon as you added all fonts you wanted you can now start the baking process
- * for every selected glyph to image by calling @ref font_atlas::bake.
- * The baking process returns image memory, width and height which can be used to
- * either create your own image object or upload it to any graphics library.
- * No matter which case, you finally have to call @ref font_atlas::end which
- * will free all temporary memory including the font atlas image so make sure
- * you created the texture beforehand. @ref font_atlas::end requires a handle
- * to your font texture or object and optionally fills a `struct nk_draw_null_texture`
- * which can be used for the optional vertex output. If you don't want it just
- * set the argument to `nullptr`.
- *
- * At this point you are done and if you don't want to reuse the font atlas you
- * can call @ref font_atlas::cleanup to free all TrueType blobs and configuration
- * memory. Finally if you don't use the font atlas and any of its fonts anymore
- * you need to call @ref font_atlas::clear to free all memory still being used.
- * This function is also automatically called in the atlas destructor.
- *
- * ```cpp
- * auto atlas = nk::font_atlas::init_default();
- *
- * atlas.begin();
- * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13);
- * nk_font* font2 = atlas.add_from_file("Path/To/Your/TTF_Font2.ttf", 16);
- * nk::v
- * const void* img = atlas.bake(&img_width, &img_height, NK_FONT_ATLAS_RGBA32);
- * atlas.end(nk_handle_id(texture), 0);
- *
- * auto ctx = nk::context::init_default(font->handle);
- * ```
- *
- * The font baker API is probably the most complex API inside this library and
- * Nuklear suggests reading examples in the `example/` directory to get a grip on how
- * to use the font atlas. There is a number of details which are left out. For example:
- * how to merge fonts, configure a font with `nk_font_config` to use other languages,
- * use another texture coordinate format and a lot more:
- *
- * ```cpp
- * struct nk_font_config cfg = nk_font_config(font_pixel_height);
- * cfg.merge_mode = nk_false or nk_true;
- * cfg.range = nk_font_korean_glyph_ranges();
- * cfg.coord_type = NK_COORD_PIXEL;
- * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13, &cfg);
- * ```
- *
+ * @defgroup string String utility functions
  * @{
  */
 
-#ifdef NK_INCLUDE_FONT_BAKING
+/**
+ * @brief Return string length in bytes
+ * @param str string to check
+ * @return length in bytes (excluding '\0')
+ */
+inline int strlen(const char* str) { return nk_strlen(str); }
 
-inline const nk_font_glyph* font_find_glyph(struct nk_font& font, nk_rune unicode)
+/**
+ * @brief String compare, case insensitive
+ * @param s1 first string
+ * @param s2 second string
+ * @return
+ * - <0 if s1 < s2
+ * - 0 if s1 == s2
+ * - >0 if s1 > s2
+ */
+inline int stricmp(const char* s1, const char* s2) { return nk_stricmp(s1, s2); }
+
+/**
+ * @copydoc stricmp
+ * @param n max number of characters to compare
+ */
+inline int stricmpn(const char* s1, const char* s2, int n) { return nk_stricmpn(s1, s2, n); }
+
+/**
+ * @brief string to int
+ * @param str string to convert
+ * @return value or 0 if convertion failed
+ * @details this function skips second `nk_strtoi` parameter due to API stability issue caused by const
+ */
+inline int strtoi(const char* str) { return nk_strtoi(str, nullptr); }
+
+/**
+ * @brief string to float
+ * @param str string to convert
+ * @return value or 0 if convertion failed
+ * @details this function skips second `nk_strtof` parameter due to API stability issue caused by const
+ */
+inline float strtof(const char* str) { return nk_strtof(str, nullptr); }
+
+#ifndef NK_STRTOD
+/**
+ * @brief string to double, requires undefined `NK_STRTOD`
+ * @param str string to convert
+ * @return value or 0 if convertion failed
+ * @details this function skips second `nk_strtod` parameter due to API stability issue caused by const
+ */
+inline double strtod(const char* str) { return nk_strtod(str, nullptr); }
+#endif
+
+// TODO this is undocumented (implements very narrow set of regex operators)
+// strfilter(const char* text, const char* regexp);
+
+/**
+ * @brief perform fuzzy string search
+ * @param str string to search within
+ * @param pattern pattern to find
+ * @param out_score set if pattern is found, has no intrinsic meaning, comparison only makes sense with same search pattern
+ * @return true if each character in pattern is found sequentially within @p str
+ */
+inline bool strmatch_fuzzy_string(char const* str, char const* pattern, int* out_score = nullptr)
 {
-	return nk_font_find_glyph(&font, unicode);
+	return nk_strmatch_fuzzy_string(str, pattern, out_score) == nk_true;
 }
 
 /**
- * @brief Font configuration storage. Requires `NK_INCLUDE_FONT_BAKING`.
+ * @copydoc strmatch_fuzzy_string
+ * @param str_len length of @p str
  */
-class font_config
+inline bool strmatch_fuzzy_text(const char* str, int str_len, const char* pattern, int* out_score = nullptr)
 {
-public:
-	font_config(float pixel_height)
-	: m_config(nk_font_config(pixel_height))
-	{}
+	return nk_strmatch_fuzzy_text(str, str_len, pattern, out_score) == nk_true;
+}
 
-	void reset(float pixel_height)
-	{
-		m_config = nk_font_config(pixel_height);
-	}
-
-	      struct nk_font_config& get_config()       { return m_config; }
-	const struct nk_font_config& get_config() const { return m_config; }
-
-private:
-	struct nk_font_config m_config = {};
-};
+///@} // string
 
 /**
- * @brief Font Atlas class for most complex font handling variant. Requires `NK_INCLUDE_FONT_BAKING`.
+ * @defgroup iterators_ranges Iterators and Ranges
+ * @{
  */
-class font_atlas
+
+/**
+ * @brief Class for conveniently iterating over the list of commands
+ * @sa context::commands
+ */
+class command_iterator
 {
 public:
-	/**
-	 * @name Construction
-	 * @{
-	 */
-	~font_atlas()
-	{
-		clear();
-	}
-
-	/* implicit */ font_atlas(nk_font_atlas atlas, bool initialized = true)
-	: m_atlas(atlas)
-	, m_initialized(initialized)
+	command_iterator(nk_context& ctx, const nk_command* cmd)
+	: m_ctx(&ctx)
+	, m_cmd(cmd)
 	{}
 
-	font_atlas(const font_atlas& other) = delete;
-	font_atlas(font_atlas&& other) noexcept
+	const nk_command& operator*() const noexcept
 	{
-		swap(*this, other);
+		return *m_cmd;
 	}
 
-	font_atlas& operator=(const font_atlas& other) = delete;
-	font_atlas& operator=(font_atlas&& other) noexcept
+	command_iterator& operator++()
 	{
-		swap(*this, other);
+		m_cmd = nk__next(m_ctx, m_cmd);
 		return *this;
 	}
 
-	/**
-	 * @brief Free all atlas resources. Called in the destructor.
-	 */
-	void clear()
+	command_iterator operator++(int)
 	{
-		if (!m_initialized)
-			return;
-
-		nk_font_atlas_clear(&m_atlas);
-		m_initialized = false;
+		command_iterator old = *this;
+		operator++();
+		return old;
 	}
 
-#ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
-	/**
-	 * @brief Create font atlas with standard library memory allocation. Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
-	 * @return Font atlas object.
-	 */
-	static font_atlas init_default()
-	{
-		font_atlas atlas;
-		nk_font_atlas_init_default(&atlas.m_atlas);
-		atlas.m_initialized = true;
-		return atlas;
-	}
-#endif
-
-	/**
-	 * @brief Create font atlas with custom allocator.
-	 * @param allocator The allocator to use.
-	 * @return Font atlas object.
-	 */
-	static font_atlas init(const nk_allocator& allocator)
-	{
-		font_atlas atlas;
-		nk_font_atlas_init(&atlas.m_atlas, &allocator);
-		atlas.m_initialized = true;
-		return atlas;
-	}
-
-	/**
-	 * @brief Create font atlas with custom allocators.
-	 * @param persistent The allocator to use for persistent storage.
-	 * @param transient The allocator to use for temporary storage (see @ref cleanup).
-	 * @return Font atlas object.
-	 */
-	static font_atlas init_custom(const nk_allocator& persistent, const nk_allocator& transient)
-	{
-		font_atlas atlas;
-		nk_font_atlas_init_custom(&atlas.m_atlas, &persistent, &transient);
-		atlas.m_initialized = true;
-		return atlas;
-	}
-
-	///@}
-
-	/**
-	 * @name Baking
-	 * @{
-	 */
-
-	/**
-	 * @brief Begin the font baking. See @ref bake.
-	 */
-	void begin()
-	{
-		nk_font_atlas_begin(&m_atlas);
-	}
-
-	[[nodiscard]] nk_font* add(const struct nk_font_config& config) // TODO needs documentation
-	{
-		return nk_font_atlas_add(&m_atlas, &config); // (config can not be null here)
-	}
-
-	[[nodiscard]] nk_font* add(const font_config& config) // TODO needs documentation
-	{
-		return add(config.get_config());
-	}
-
-#ifdef NK_INCLUDE_DEFAULT_FONT
-	/**
-	 * @brief Add Nuklear's built-in ProggyClean font. Requires `NK_INCLUDE_DEFAULT_FONT`.
-	 * @param height Height of the font in pixels. Overrides configuration's size.
-	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
-	 * @return Pointer to font object, managed by the atlas.
-	 */
-	[[nodiscard]] nk_font* add_default(float height, const struct nk_font_config* config = nullptr)
-	{
-		return nk_font_atlas_add_default(&m_atlas, height, config);
-	}
-
-	/**
-	 * @copydoc add_default(float, const struct nk_font_config*)
-	 */
-	[[nodiscard]] nk_font* add_default(float height, const font_config& config)
-	{
-		return add_default(height, &config.get_config());
-	}
-#endif
-
-	/**
-	 * @brief Add a font from memory.
-	 * @param memory Address of the memory block.
-	 * @param size length of the memory block.
-	 * @param height Height of the font in pixels. Overrides configuration's size.
-	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
-	 * @return Pointer to font object, managed by the atlas.
-	 */
-	[[nodiscard]] nk_font* add_from_memory(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
-	{
-		// const_cast is fine: the library never modifies the data (actually copies it) - API const issue?
-		return nk_font_atlas_add_from_memory(&m_atlas, const_cast<void*>(memory), size, height, config);
-	}
-
-	/**
-	 * @copydoc add_from_memory(const void*, nk_size, float, const struct nk_font_config*)
-	 */
-	[[nodiscard]] nk_font* add_from_memory(const void* memory, nk_size size, float height, const font_config& config)
-	{
-		return add_from_memory(memory, size, height, &config.get_config());
-	}
-
-	/**
-	 * @brief Add a compressed font from memory.
-	 * @param memory Address of the memory block.
-	 * @param size length of the memory block.
-	 * @param height Height of the font in pixels. Overrides configuration's size.
-	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
-	 * @return Pointer to font object, managed by the atlas.
-	 */
-	[[nodiscard]] nk_font* add_compressed(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
-	{
-		// const_cast is fine: the library never modifies the data (actually copies it) - API const issue?
-		return nk_font_atlas_add_compressed(&m_atlas, const_cast<void*>(memory), size, height, config);
-	}
-
-	/**
-	 * @copydoc add_compressed(const void*, nk_size, float, const struct nk_font_config*)
-	 */
-	[[nodiscard]] nk_font* add_compressed(const void* memory, nk_size size, float height, const font_config& config)
-	{
-		return add_compressed(memory, size, height, &config.get_config());
-	}
-
-	/**
-	 * @brief Add a compressed font from memory which is base-85 encoded on top.
-	 * @param data Null-terminated base-85 string.
-	 * @param height Height of the font in pixels. Overrides configuration's size.
-	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
-	 * @return Pointer to font object, managed by the atlas.
-	 */
-	[[nodiscard]] nk_font* add_compressed_base85(const char* data, float height, const struct nk_font_config* config = nullptr)
-	{
-		return nk_font_atlas_add_compressed_base85(&m_atlas, data, height, config);
-	}
-
-	/**
-	 * @copydoc add_compressed_base85(const char*, float, const struct nk_font_config*)
-	 */
-	[[nodiscard]] nk_font* add_compressed_base85(const char* data, float height, const font_config& config)
-	{
-		return add_compressed_base85(data, height, &config.get_config());
-	}
-
-#ifdef NK_INCLUDE_STANDARD_IO
-	/**
-	 * @brief Add a font from file. Requires `NK_INCLUDE_STANDARD_IO`.
-	 * @param file_path Path to the file with font data.
-	 * @param height Height of the font in pixels. Overrides configuration's size.
-	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
-	 * @return Pointer to font object, managed by the atlas.
-	 */
-	[[nodiscard]] nk_font* add_from_file(const char* file_path, float height, const struct nk_font_config* config = nullptr)
-	{
-		return nk_font_atlas_add_from_file(&m_atlas, file_path, height, config);
-	}
-
-	/**
-	 * @copydoc add_from_file(const char*, float, const struct nk_font_config*)
-	 */
-	[[nodiscard]] nk_font* add_from_file(const char* file_path, float height, const font_config& config)
-	{
-		return add_from_file(file_path, height, &config.get_config());
-	}
-#endif
-
-	/**
-	 * @brief Perform the baking process.
-	 * @param dimentions Resulting image dimentions.
-	 * @param fmt One of available atlas formats.
-	 * @return Pointer to resulting image.
-	 * @attention This function must be called between @ref begin and @ref end.
-	 */
-	[[nodiscard]] const void* bake(vec2<int>& dimentions, nk_font_atlas_format fmt)
-	{
-		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, fmt);
-	}
-
-	void end(nk_handle texture, struct nk_draw_null_texture* texture_null = nullptr) // TODO needs documentation
-	{
-		nk_font_atlas_end(&m_atlas, texture, texture_null);
-	}
-
-	/**
-	 * @brief Free any resources that were allocated for the baking process. Can be called after @ref end.
-	 */
-	void cleanup()
-	{
-		nk_font_atlas_cleanup(&m_atlas);
-	}
-
-	///@}
+	friend bool operator==(command_iterator lhs, command_iterator rhs) noexcept;
 
 private:
-	font_atlas() = default;
-
-	nk_font_atlas m_atlas = {};
-	bool m_initialized = false;
+	nk_context* m_ctx;
+	const nk_command* m_cmd;
 };
 
-#endif // NK_INCLUDE_FONT_BAKING
+inline bool operator==(command_iterator lhs, command_iterator rhs) noexcept
+{
+	return lhs.m_cmd == rhs.m_cmd && lhs.m_ctx == rhs.m_ctx;
+}
 
-///@}
-
-// -------- memory buffer --------
+inline bool operator!=(command_iterator lhs, command_iterator rhs) noexcept
+{
+	return !(lhs == rhs);
+}
 
 /**
- * @defgroup memory Raw Memory Buffer
+ * @brief Class for conveniently iterating over the list of vertex commands
+ * @sa context::draw_commands
+ */
+class draw_command_iterator
+{
+public:
+	draw_command_iterator(const nk_context& ctx, const nk_buffer* buf, const nk_draw_command* cmd)
+	: m_ctx(&ctx)
+	, m_buf(buf)
+	, m_cmd(cmd)
+	{}
+
+	const nk_draw_command& operator*() const noexcept
+	{
+		return *m_cmd;
+	}
+
+	draw_command_iterator& operator++()
+	{
+		m_cmd = nk__draw_next(m_cmd, m_buf, m_ctx);
+		return *this;
+	}
+
+	draw_command_iterator operator++(int)
+	{
+		draw_command_iterator old = *this;
+		operator++();
+		return old;
+	}
+
+	friend bool operator==(draw_command_iterator lhs, draw_command_iterator rhs) noexcept;
+
+private:
+	const nk_context* m_ctx;
+	const nk_buffer* m_buf;
+	const nk_draw_command* m_cmd;
+};
+
+inline bool operator==(draw_command_iterator lhs, draw_command_iterator rhs) noexcept
+{
+	return lhs.m_cmd == rhs.m_cmd && lhs.m_buf == rhs.m_buf && lhs.m_ctx == rhs.m_ctx;
+}
+
+inline bool operator!=(draw_command_iterator lhs, draw_command_iterator rhs) noexcept
+{
+	return !(lhs == rhs);
+}
+
+template <typename Iterator>
+class range
+{
+public:
+	range(Iterator b, Iterator e)
+	: m_begin(b)
+	, m_end(e)
+	{}
+
+	Iterator begin() const
+	{
+		return m_begin;
+	}
+
+	Iterator end() const
+	{
+		return m_end;
+	}
+
+private:
+	Iterator m_begin;
+	Iterator m_end;
+};
+
+template <typename Iterator>
+class span
+{
+public:
+	span(Iterator b, int length)
+	: m_begin(b)
+	, m_size(length)
+	{}
+
+	Iterator begin() const
+	{
+		return m_begin;
+	}
+
+	Iterator end() const
+	{
+		return m_begin + m_size;
+	}
+
+	int size() const
+	{
+		return m_size;
+	}
+
+private:
+	Iterator m_begin;
+	int m_size;
+};
+
+///@} // iterators_ranges
+
+/**
+ * @defgroup lifetime RAII support
+ * @brief Types that implement support for scoped begin/end calls.
+ * @{
+ */
+
+// Added bool invoke to constructor and factory function to be able to
+// immediately cancel actions (useful for negative returns in Nuklear).
+
+/**
+ * @brief Based on Core Guidelines `gsl::final_action`.
+ * @tparam F function object type
+ */
+template <typename F>
+class scoped_action
+{
+public:
+	static_assert(
+		!is_reference_v<F> && !is_const_v<F> && !is_volatile_v<F>,
+		"scoped_action should store its callable by value");
+
+	explicit scoped_action(F f, bool invoke = true) noexcept
+	: m_f(move(f))
+	, m_invoke(invoke)
+	{}
+
+	scoped_action(scoped_action&& other) noexcept
+	: m_f(move(other.m_f))
+	, m_invoke(exchange(other.m_invoke, false))
+	{}
+
+	// For some reason, gsl::final_action deletes move assignment.
+	// Perhaps scope guards should never be reset and always perform their action at the end of scope.
+	scoped_action& operator=(scoped_action&&) noexcept = delete;
+
+	scoped_action(const scoped_action&) = delete;
+	scoped_action& operator=(const scoped_action&) = delete;
+
+	~scoped_action()
+	{
+		if (m_invoke)
+			m_f();
+	}
+
+private:
+	F m_f;
+	bool m_invoke = true;
+};
+
+/**
+ * @brief Adds bool state and a convertion to bool to scoped_action.
+ * This allows to hold returns from Nuklear for additional checking.
+ * Example: `if (auto result = ctx.f(); result)`
+ * @tparam F function object type
+ */
+template <typename F>
+class scoped_action_with_bool : public scoped_action<F>
+{
+public:
+	explicit scoped_action_with_bool(F f, bool state)
+	: scoped_action<F>(move(f))
+	, m_state(state)
+	{}
+
+	scoped_action_with_bool(scoped_action_with_bool&& other) noexcept
+	: scoped_action<F>(move(other))
+	, m_state(other.m_state)
+	{}
+
+	scoped_action_with_bool(const scoped_action_with_bool&) = delete;
+	scoped_action_with_bool& operator=(const scoped_action_with_bool&) = delete;
+	scoped_action_with_bool& operator=(scoped_action_with_bool&&) noexcept = delete;
+
+	explicit operator bool() const noexcept
+	{
+		return m_state;
+	}
+
+private:
+	bool m_state;
+};
+
+template <typename F>
+[[nodiscard]] scoped_action<remove_cvref_t<F>>
+make_scoped(F&& f, bool invoke = true) noexcept
+{
+	return scoped_action<remove_cvref_t<F>>(forward<F>(f), invoke);
+}
+
+template <typename F>
+[[nodiscard]] scoped_action_with_bool<remove_cvref_t<F>>
+make_scoped_with_bool(F&& f, bool state) noexcept
+{
+	return scoped_action_with_bool<remove_cvref_t<F>>(forward<F>(f), state);
+}
+
+/**
+ * @brief Base class for implementing scope guards.
+ * @details The destructor is protected because this class does not implement cleanup.
+ * Derived types are expected to perform it in their own way.
+ */
+template <typename F>
+class scope_guard_base
+{
+public:
+	using func_type = F;
+
+	explicit scope_guard_base(nk_context& ctx, func_type* func) noexcept
+	: m_ctx(&ctx)
+	, m_func(func)
+	{}
+
+	scope_guard_base(scope_guard_base&& other) noexcept
+	: m_ctx(other.m_ctx)
+	, m_func(exchange(other.m_func, nullptr))
+	{}
+
+	scope_guard_base(const scope_guard_base&) = delete;
+	scope_guard_base& operator=(const scope_guard_base&) = delete;
+	scope_guard_base& operator=(scope_guard_base&&) noexcept = delete;
+
+	/**
+	 * @brief Get the active state of this guard.
+	 * @return `true` if an action has begun (but not ended), `false` otherwise.
+	 */
+	bool is_scope_active() const
+	{
+		return m_func != nullptr;
+	}
+
+	/**
+	 * @brief Get a reference to the context.
+	 * @return The context.
+	 * @details This function is intended to allow to use Nuklear directly, if such need appears.
+	 * Watch out when modifying begin/end state as all objects of this type use the RAII idiom.
+	 * @sa release.
+	 */
+	nk_context& get_context()
+	{
+		return *m_ctx;
+	}
+
+	/**
+	 * @copydoc get_context()
+	 */
+	const nk_context& get_context() const
+	{
+		return *m_ctx;
+	}
+
+	/**
+	 * @brief Release the state for the caller's management, like `unique_ptr::release`
+	 * @return Function that must be called to free resources/reset state. May be null.
+	 */
+	[[nodiscard]] func_type* release()
+	{
+		return exchange(m_func, nullptr);
+	}
+
+protected:
+	// Protected because this class should not be used directly.
+	// It does not implement cleanup in the destructor. Derived classes do
+	// different cleanups and this class is used as a base to deduplicate code.
+	~scope_guard_base() = default;
+
+	func_type* get_func() const
+	{
+		return m_func;
+	}
+
+	void set_func(func_type* func)
+	{
+		NK_ASSERT(m_func == nullptr);
+		m_func = func;
+	}
+
+private:
+	nk_context* m_ctx;
+	func_type* m_func = nullptr;
+};
+
+/**
+ * @brief default scope guard, just calls the function in dtor
+ */
+class scope_guard : public scope_guard_base<void (nk_context*)>
+{
+public:
+	// bring 2-argument ctor
+	using scope_guard_base::scope_guard_base;
+
+	// required because explicit destructor disables move (rule of 5)
+	scope_guard(const scope_guard&) = delete;
+	scope_guard(scope_guard&&) noexcept = default;
+	scope_guard& operator=(const scope_guard&) = delete;
+	scope_guard& operator=(scope_guard&&) noexcept = delete;
+
+	/**
+	 * @brief Reset state of this guard. Will call end function if active.
+	 */
+	void reset()
+	{
+		func_type* func = get_func();
+		if (func)
+		{
+			(*func)(&get_context());
+			set_func(nullptr);
+		}
+	}
+
+	~scope_guard()
+	{
+		reset();
+	}
+};
+
+class scoped_override_guard : public scope_guard_base<nk_bool (nk_context*)>
+{
+public:
+	// bring 2-argument ctor
+	using scope_guard_base::scope_guard_base;
+
+	// required because explicit destructor disables move (rule of 5)
+	scoped_override_guard(const scoped_override_guard&) = delete;
+	scoped_override_guard(scoped_override_guard&&) noexcept = default;
+	scoped_override_guard& operator=(const scoped_override_guard&) = delete;
+	scoped_override_guard& operator=(scoped_override_guard&&) noexcept = delete;
+
+	~scoped_override_guard()
+	{
+		reset();
+	}
+
+	explicit operator bool() const
+	{
+		return is_scope_active();
+	}
+
+	void reset()
+	{
+		func_type* func = get_func();
+		if (func)
+		{
+			const nk_bool result = (*func)(&get_context());
+			set_func(nullptr);
+			NK_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
+		}
+	}
+};
+
+///@} // lifetime
+
+///@} // basic
+
+/**
+ * @defgroup main Main Library
+ * @{
+ */
+
+/**
+ * @defgroup buffers Buffer types
  * @{
  */
 
@@ -1965,426 +1958,449 @@ private:
 	bool m_initialized = false;
 };
 
-///@}
-
-// -------- iterators/ranges --------
+///@} // buffers
 
 /**
- * @defgroup iterators_ranges Iterators and Ranges
+ * @defgroup font_handling Font Handling
+ * @details Font handling in this library was designed to be quite customizable and let
+ * you decide what you want to use and what you want to provide. There are three
+ * different ways to use the font atlas:
+ * 1. (simplest) your font handling scheme. Requires only essential data.
+ * 2. Vertex buffer output. Requires only essential data + `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`.
+ * 3. (most complex) Nuklear's font baking API. Requires `NK_INCLUDE_FONT_BAKING`.
+ *
+ * ### (1) Using your own implementation without vertex buffer output
+ *
+ * The easiest way to do font handling is by just providing a
+ * `nk_user_font` struct which only requires the height in pixel of the used
+ * font and a callback to calculate the width of a string. This way of handling
+ * fonts is best fitted for using the normal draw shape command API where you
+ * do all the text drawing yourself and the library does not require any kind
+ * of deeper knowledge about which font handling mechanism you use.
+ *
+ * **Important:** the `nk_user_font` object provided to nuklear has to persist
+ * over the complete life time! I know this sucks but it is currently the only
+ * way to switch between fonts.
+ *
+ * ```cpp
+ * float your_text_width_calculation(nk_handle handle, float height, const char* text, int len)
+ * {
+ *     your_font_type* type = handle.ptr;
+ *     float text_width = ...;
+ *     return text_width;
+ * }
+ *
+ * nk_user_font font;
+ * font.userdata.ptr = &your_font_class_or_struct;
+ * font.height = your_font_height;
+ * font.width = &your_text_width_calculation;
+ *
+ * auto ctx = context::init_default(font);
+ * ```
+ *
+ * ### (2) Using your own implementation with vertex buffer output
+ *
+ * While the first approach works fine if you don't want to use the optional
+ * vertex buffer output it is not enough if you do. To get font handling working
+ * for these cases you have to provide two additional parameters inside `nk_user_font`:
+ * - a texture atlas used to draw text as subimages of a bigger font atlas texture
+ * - a callback to query a character's glyph information (offset, size, ...)
+ *
+ * So it is still possible to provide your own font and use the vertex buffer output.
+ *
+ * ```cpp
+ * float your_text_width_calculation(nk_handle handle, float height, const char* text, int len)
+ * {
+ *     your_font_type* type = handle.ptr;
+ *     float text_width = ...;
+ *     return text_width;
+ * }
+ *
+ * void query_your_font_glyph(nk_handle handle, float font_height, nk_user_font_glyph* glyph, nk_rune codepoint, nk_rune next_codepoint)
+ * {
+ *     your_font_type* type = handle.ptr;
+ *     glyph.width = ...;
+ *     glyph.height = ...;
+ *     glyph.xadvance = ...;
+ *     glyph.uv[0].x = ...;
+ *     glyph.uv[0].y = ...;
+ *     glyph.uv[1].x = ...;
+ *     glyph.uv[1].y = ...;
+ *     glyph.offset.x = ...;
+ *     glyph.offset.y = ...;
+ * }
+ *
+ * nk_user_font font;
+ * font.userdata.ptr = &your_font_class_or_struct;
+ * font.height = your_font_height;
+ * font.width = &your_text_width_calculation;
+ * font.query = &query_your_font_glyph;
+ * font.texture.id = your_font_texture;
+ *
+ * auto ctx = nk::context::init_default(font);
+ * ```
+ *
+ * ### (3) Nuklear font baker
+ *
+ * The final approach if you do not have a font handling functionality or don't
+ * want to use it in this library is by using the optional font baker.
+ * The font baker APIs can be used to create a font plus font atlas texture
+ * and can be used with or without the vertex buffer output.
+ *
+ * It still uses the `nk_user_font` struct and the two different approaches
+ * previously stated still work. The font baker is not located inside
+ * `nk_context` like all other systems since it can be understood as more of
+ * an extension to nuklear and does not really depend on any context state.
+ *
+ * Font baker needs to be initialized first. If you don't care about memory just call
+ * @ref font_atlas::init_default which will allocate all memory from the standard library
+ * (requires `NK_INCLUDE_DEFAULT_ALLOCATOR`). If you want to control memory allocation
+ * but you don't care if the allocated memory is temporary (which can be freed directly
+ * after the baking process is over) or permanent you can call @ref font_atlas::init.
+ * If you do care, use @ref font_atlas::init_custom.
+ *
+ * After successfully initializing the font baker you can add TrueType fonts (`.ttf`)
+ * from different sources like memory or files by calling one of the atlas functions.
+ * Adding a font will permanently store it with font config and the TTF memory block
+ * inside the atlas for later reuse. If you don't want to reuse the font baker
+ * (by for example adding additional fonts) you can call @ref font_atlas::cleanup
+ * after the baking process is over (after end of @ref font_atlas::end).
+ *
+ * As soon as you added all fonts you wanted you can now start the baking process
+ * for every selected glyph to image by calling @ref font_atlas::bake.
+ * The baking process returns image memory, width and height which can be used to
+ * either create your own image object or upload it to any graphics library.
+ * No matter which case, you finally have to call @ref font_atlas::end which
+ * will free all temporary memory including the font atlas image so make sure
+ * you created the texture beforehand. @ref font_atlas::end requires a handle
+ * to your font texture or object and optionally fills a `struct nk_draw_null_texture`
+ * which can be used for the optional vertex output. If you don't want it just
+ * set the argument to `nullptr`.
+ *
+ * At this point you are done and if you don't want to reuse the font atlas you
+ * can call @ref font_atlas::cleanup to free all TrueType blobs and configuration
+ * memory. Finally if you don't use the font atlas and any of its fonts anymore
+ * you need to call @ref font_atlas::clear to free all memory still being used.
+ * This function is also automatically called in the atlas destructor.
+ *
+ * ```cpp
+ * auto atlas = nk::font_atlas::init_default();
+ *
+ * atlas.begin();
+ * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13);
+ * nk_font* font2 = atlas.add_from_file("Path/To/Your/TTF_Font2.ttf", 16);
+ * nk::v
+ * const void* img = atlas.bake(&img_width, &img_height, NK_FONT_ATLAS_RGBA32);
+ * atlas.end(nk_handle_id(texture), 0);
+ *
+ * auto ctx = nk::context::init_default(font->handle);
+ * ```
+ *
+ * The font baker API is probably the most complex API inside this library and
+ * Nuklear suggests reading examples in the `example/` directory to get a grip on how
+ * to use the font atlas. There is a number of details which are left out. For example:
+ * how to merge fonts, configure a font with `nk_font_config` to use other languages,
+ * use another texture coordinate format and a lot more:
+ *
+ * ```cpp
+ * struct nk_font_config cfg = nk_font_config(font_pixel_height);
+ * cfg.merge_mode = nk_false or nk_true;
+ * cfg.range = nk_font_korean_glyph_ranges();
+ * cfg.coord_type = NK_COORD_PIXEL;
+ * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13, &cfg);
+ * ```
+ *
  * @{
  */
 
-// ---- iterators ----
+#ifdef NK_INCLUDE_FONT_BAKING
+
+inline const nk_font_glyph* font_find_glyph(struct nk_font& font, nk_rune unicode)
+{
+	return nk_font_find_glyph(&font, unicode);
+}
 
 /**
- * @brief Class for conveniently iterating over the list of commands
- * @sa context::commands
+ * @brief Font configuration storage. Requires `NK_INCLUDE_FONT_BAKING`.
  */
-class command_iterator
+class font_config
 {
 public:
-	command_iterator(nk_context& ctx, const nk_command* cmd)
-	: m_ctx(&ctx)
-	, m_cmd(cmd)
+	font_config(float pixel_height)
+	: m_config(nk_font_config(pixel_height))
 	{}
 
-	const nk_command& operator*() const noexcept
+	void reset(float pixel_height)
 	{
-		return *m_cmd;
+		m_config = nk_font_config(pixel_height);
 	}
 
-	command_iterator& operator++()
+	      struct nk_font_config& get_config()       { return m_config; }
+	const struct nk_font_config& get_config() const { return m_config; }
+
+private:
+	struct nk_font_config m_config = {};
+};
+
+/**
+ * @brief Font Atlas class for most complex font handling variant. Requires `NK_INCLUDE_FONT_BAKING`.
+ */
+class font_atlas
+{
+public:
+	/**
+	 * @name Construction
+	 * @{
+	 */
+	~font_atlas()
 	{
-		m_cmd = nk__next(m_ctx, m_cmd);
+		clear();
+	}
+
+	/* implicit */ font_atlas(nk_font_atlas atlas, bool initialized = true)
+	: m_atlas(atlas)
+	, m_initialized(initialized)
+	{}
+
+	font_atlas(const font_atlas& other) = delete;
+	font_atlas(font_atlas&& other) noexcept
+	{
+		swap(*this, other);
+	}
+
+	font_atlas& operator=(const font_atlas& other) = delete;
+	font_atlas& operator=(font_atlas&& other) noexcept
+	{
+		swap(*this, other);
 		return *this;
 	}
 
-	command_iterator operator++(int)
+	/**
+	 * @brief Free all atlas resources. Called in the destructor.
+	 */
+	void clear()
 	{
-		command_iterator old = *this;
-		operator++();
-		return old;
+		if (!m_initialized)
+			return;
+
+		nk_font_atlas_clear(&m_atlas);
+		m_initialized = false;
 	}
 
-	friend bool operator==(command_iterator lhs, command_iterator rhs) noexcept;
-
-private:
-	nk_context* m_ctx;
-	const nk_command* m_cmd;
-};
-
-inline bool operator==(command_iterator lhs, command_iterator rhs) noexcept
-{
-	return lhs.m_cmd == rhs.m_cmd && lhs.m_ctx == rhs.m_ctx;
-}
-
-inline bool operator!=(command_iterator lhs, command_iterator rhs) noexcept
-{
-	return !(lhs == rhs);
-}
-
-/**
- * @brief Class for conveniently iterating over the list of vertex commands
- * @sa context::draw_commands
- */
-class draw_command_iterator
-{
-public:
-	draw_command_iterator(const nk_context& ctx, const nk_buffer* buf, const nk_draw_command* cmd)
-	: m_ctx(&ctx)
-	, m_buf(buf)
-	, m_cmd(cmd)
-	{}
-
-	const nk_draw_command& operator*() const noexcept
+#ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
+	/**
+	 * @brief Create font atlas with standard library memory allocation. Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
+	 * @return Font atlas object.
+	 */
+	static font_atlas init_default()
 	{
-		return *m_cmd;
+		font_atlas atlas;
+		nk_font_atlas_init_default(&atlas.m_atlas);
+		atlas.m_initialized = true;
+		return atlas;
 	}
-
-	draw_command_iterator& operator++()
-	{
-		m_cmd = nk__draw_next(m_cmd, m_buf, m_ctx);
-		return *this;
-	}
-
-	draw_command_iterator operator++(int)
-	{
-		draw_command_iterator old = *this;
-		operator++();
-		return old;
-	}
-
-	friend bool operator==(draw_command_iterator lhs, draw_command_iterator rhs) noexcept;
-
-private:
-	const nk_context* m_ctx;
-	const nk_buffer* m_buf;
-	const nk_draw_command* m_cmd;
-};
-
-inline bool operator==(draw_command_iterator lhs, draw_command_iterator rhs) noexcept
-{
-	return lhs.m_cmd == rhs.m_cmd && lhs.m_buf == rhs.m_buf && lhs.m_ctx == rhs.m_ctx;
-}
-
-inline bool operator!=(draw_command_iterator lhs, draw_command_iterator rhs) noexcept
-{
-	return !(lhs == rhs);
-}
-
-// ---- ranges ----
-
-template <typename Iterator>
-class range
-{
-public:
-	range(Iterator b, Iterator e)
-	: m_begin(b)
-	, m_end(e)
-	{}
-
-	Iterator begin() const
-	{
-		return m_begin;
-	}
-
-	Iterator end() const
-	{
-		return m_end;
-	}
-
-private:
-	Iterator m_begin;
-	Iterator m_end;
-};
-
-template <typename Iterator>
-class span
-{
-public:
-	span(Iterator b, int length)
-	: m_begin(b)
-	, m_size(length)
-	{}
-
-	Iterator begin() const
-	{
-		return m_begin;
-	}
-
-	Iterator end() const
-	{
-		return m_begin + m_size;
-	}
-
-	int size() const
-	{
-		return m_size;
-	}
-
-private:
-	Iterator m_begin;
-	int m_size;
-};
-
-///@}
-
-// -------- helpers for object lifetime management --------
-
-/**
- * @defgroup lifetime RAII support
- * @brief Types that implement support for scoped begin/end calls.
- * @{
- */
-
-// Added bool invoke to constructor and factory function to be able to
-// immediately cancel actions (useful for negative returns in Nuklear).
-
-/**
- * @brief Based on Core Guidelines `gsl::final_action`.
- * @tparam F function object type
- */
-template <typename F>
-class scoped_action
-{
-public:
-	static_assert(
-		!is_reference_v<F> && !is_const_v<F> && !is_volatile_v<F>,
-		"scoped_action should store its callable by value");
-
-	explicit scoped_action(F f, bool invoke = true) noexcept
-	: m_f(move(f))
-	, m_invoke(invoke)
-	{}
-
-	scoped_action(scoped_action&& other) noexcept
-	: m_f(move(other.m_f))
-	, m_invoke(exchange(other.m_invoke, false))
-	{}
-
-	// For some reason, gsl::final_action deletes move assignment.
-	// Perhaps scope guards should never be reset and always perform their action at the end of scope.
-	scoped_action& operator=(scoped_action&&) noexcept = delete;
-
-	scoped_action(const scoped_action&) = delete;
-	scoped_action& operator=(const scoped_action&) = delete;
-
-	~scoped_action()
-	{
-		if (m_invoke)
-			m_f();
-	}
-
-private:
-	F m_f;
-	bool m_invoke = true;
-};
-
-/**
- * @brief Adds bool state and a convertion to bool to scoped_action.
- * This allows to hold returns from Nuklear for additional checking.
- * Example: `if (auto result = ctx.f(); result)`
- * @tparam F function object type
- */
-template <typename F>
-class scoped_action_with_bool : public scoped_action<F>
-{
-public:
-	explicit scoped_action_with_bool(F f, bool state)
-	: scoped_action<F>(move(f))
-	, m_state(state)
-	{}
-
-	scoped_action_with_bool(scoped_action_with_bool&& other) noexcept
-	: scoped_action<F>(move(other))
-	, m_state(other.m_state)
-	{}
-
-	scoped_action_with_bool(const scoped_action_with_bool&) = delete;
-	scoped_action_with_bool& operator=(const scoped_action_with_bool&) = delete;
-	scoped_action_with_bool& operator=(scoped_action_with_bool&&) noexcept = delete;
-
-	explicit operator bool() const noexcept
-	{
-		return m_state;
-	}
-
-private:
-	bool m_state;
-};
-
-template <typename F>
-[[nodiscard]] scoped_action<remove_cvref_t<F>>
-make_scoped(F&& f, bool invoke = true) noexcept
-{
-	return scoped_action<remove_cvref_t<F>>(forward<F>(f), invoke);
-}
-
-template <typename F>
-[[nodiscard]] scoped_action_with_bool<remove_cvref_t<F>>
-make_scoped_with_bool(F&& f, bool state) noexcept
-{
-	return scoped_action_with_bool<remove_cvref_t<F>>(forward<F>(f), state);
-}
-
-/**
- * @brief Base class for implementing scope guards.
- */
-template <typename F>
-class scope_guard_base
-{
-public:
-	using func_type = F;
-
-	explicit scope_guard_base(nk_context& ctx, func_type* func) noexcept
-	: m_ctx(&ctx)
-	, m_func(func)
-	{}
-
-	scope_guard_base(scope_guard_base&& other) noexcept
-	: m_ctx(other.m_ctx)
-	, m_func(exchange(other.m_func, nullptr))
-	{}
-
-	scope_guard_base(const scope_guard_base&) = delete;
-	scope_guard_base& operator=(const scope_guard_base&) = delete;
-	scope_guard_base& operator=(scope_guard_base&&) noexcept = delete;
+#endif
 
 	/**
-	 * @brief Get the active state of this guard.
-	 * @return `true` if an action has begun (but not ended), `false` otherwise.
+	 * @brief Create font atlas with custom allocator.
+	 * @param allocator The allocator to use.
+	 * @return Font atlas object.
 	 */
-	bool is_scope_active() const
+	static font_atlas init(const nk_allocator& allocator)
 	{
-		return m_func != nullptr;
+		font_atlas atlas;
+		nk_font_atlas_init(&atlas.m_atlas, &allocator);
+		atlas.m_initialized = true;
+		return atlas;
 	}
 
 	/**
-	 * @brief Get a reference to the context.
-	 * @return The context.
-	 * @details This function is intended to allow to use Nuklear directly, if such need appears.
-	 * Watch out when modifying begin/end state as all objects of this type use the RAII idiom.
-	 * @sa release.
+	 * @brief Create font atlas with custom allocators.
+	 * @param persistent The allocator to use for persistent storage.
+	 * @param transient The allocator to use for temporary storage (see @ref cleanup).
+	 * @return Font atlas object.
 	 */
-	nk_context& get_context()
+	static font_atlas init_custom(const nk_allocator& persistent, const nk_allocator& transient)
 	{
-		return *m_ctx;
+		font_atlas atlas;
+		nk_font_atlas_init_custom(&atlas.m_atlas, &persistent, &transient);
+		atlas.m_initialized = true;
+		return atlas;
+	}
+
+	///@}
+
+	/**
+	 * @name Baking
+	 * @{
+	 */
+
+	/**
+	 * @brief Begin the font baking. See @ref bake.
+	 */
+	void begin()
+	{
+		nk_font_atlas_begin(&m_atlas);
+	}
+
+	[[nodiscard]] nk_font* add(const struct nk_font_config& config) // TODO needs documentation
+	{
+		return nk_font_atlas_add(&m_atlas, &config); // (config can not be null here)
+	}
+
+	[[nodiscard]] nk_font* add(const font_config& config) // TODO needs documentation
+	{
+		return add(config.get_config());
+	}
+
+#ifdef NK_INCLUDE_DEFAULT_FONT
+	/**
+	 * @brief Add Nuklear's built-in ProggyClean font. Requires `NK_INCLUDE_DEFAULT_FONT`.
+	 * @param height Height of the font in pixels. Overrides configuration's size.
+	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
+	 * @return Pointer to font object, managed by the atlas.
+	 */
+	[[nodiscard]] nk_font* add_default(float height, const struct nk_font_config* config = nullptr)
+	{
+		return nk_font_atlas_add_default(&m_atlas, height, config);
 	}
 
 	/**
-	 * @copydoc get_context()
+	 * @copydoc add_default(float, const struct nk_font_config*)
 	 */
-	const nk_context& get_context() const
+	[[nodiscard]] nk_font* add_default(float height, const font_config& config)
 	{
-		return *m_ctx;
+		return add_default(height, &config.get_config());
+	}
+#endif
+
+	/**
+	 * @brief Add a font from memory.
+	 * @param memory Address of the memory block.
+	 * @param size length of the memory block.
+	 * @param height Height of the font in pixels. Overrides configuration's size.
+	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
+	 * @return Pointer to font object, managed by the atlas.
+	 */
+	[[nodiscard]] nk_font* add_from_memory(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
+	{
+		// const_cast is fine: the library never modifies the data (actually copies it) - API const issue?
+		return nk_font_atlas_add_from_memory(&m_atlas, const_cast<void*>(memory), size, height, config);
 	}
 
 	/**
-	 * @brief Release the state for the caller's management, like `unique_ptr::release`
-	 * @return Function that must be called to free resources/reset state. May be null.
+	 * @copydoc add_from_memory(const void*, nk_size, float, const struct nk_font_config*)
 	 */
-	[[nodiscard]] func_type* release()
+	[[nodiscard]] nk_font* add_from_memory(const void* memory, nk_size size, float height, const font_config& config)
 	{
-		return exchange(m_func, nullptr);
+		return add_from_memory(memory, size, height, &config.get_config());
 	}
 
-protected:
-	// Protected because this class should not be used directly.
-	// It does not implement cleanup in the destructor. Derived classes do
-	// different cleanups and this class is used as a base to deduplicate code.
-	~scope_guard_base() = default;
-
-	func_type* get_func() const
+	/**
+	 * @brief Add a compressed font from memory.
+	 * @param memory Address of the memory block.
+	 * @param size length of the memory block.
+	 * @param height Height of the font in pixels. Overrides configuration's size.
+	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
+	 * @return Pointer to font object, managed by the atlas.
+	 */
+	[[nodiscard]] nk_font* add_compressed(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
 	{
-		return m_func;
+		// const_cast is fine: the library never modifies the data (actually copies it) - API const issue?
+		return nk_font_atlas_add_compressed(&m_atlas, const_cast<void*>(memory), size, height, config);
 	}
 
-	void set_func(func_type* func)
+	/**
+	 * @copydoc add_compressed(const void*, nk_size, float, const struct nk_font_config*)
+	 */
+	[[nodiscard]] nk_font* add_compressed(const void* memory, nk_size size, float height, const font_config& config)
 	{
-		NK_ASSERT(m_func == nullptr);
-		m_func = func;
+		return add_compressed(memory, size, height, &config.get_config());
 	}
+
+	/**
+	 * @brief Add a compressed font from memory which is base-85 encoded on top.
+	 * @param data Null-terminated base-85 string.
+	 * @param height Height of the font in pixels. Overrides configuration's size.
+	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
+	 * @return Pointer to font object, managed by the atlas.
+	 */
+	[[nodiscard]] nk_font* add_compressed_base85(const char* data, float height, const struct nk_font_config* config = nullptr)
+	{
+		return nk_font_atlas_add_compressed_base85(&m_atlas, data, height, config);
+	}
+
+	/**
+	 * @copydoc add_compressed_base85(const char*, float, const struct nk_font_config*)
+	 */
+	[[nodiscard]] nk_font* add_compressed_base85(const char* data, float height, const font_config& config)
+	{
+		return add_compressed_base85(data, height, &config.get_config());
+	}
+
+#ifdef NK_INCLUDE_STANDARD_IO
+	/**
+	 * @brief Add a font from file. Requires `NK_INCLUDE_STANDARD_IO`.
+	 * @param file_path Path to the file with font data.
+	 * @param height Height of the font in pixels. Overrides configuration's size.
+	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
+	 * @return Pointer to font object, managed by the atlas.
+	 */
+	[[nodiscard]] nk_font* add_from_file(const char* file_path, float height, const struct nk_font_config* config = nullptr)
+	{
+		return nk_font_atlas_add_from_file(&m_atlas, file_path, height, config);
+	}
+
+	/**
+	 * @copydoc add_from_file(const char*, float, const struct nk_font_config*)
+	 */
+	[[nodiscard]] nk_font* add_from_file(const char* file_path, float height, const font_config& config)
+	{
+		return add_from_file(file_path, height, &config.get_config());
+	}
+#endif
+
+	/**
+	 * @brief Perform the baking process.
+	 * @param dimentions Resulting image dimentions.
+	 * @param fmt One of available atlas formats.
+	 * @return Pointer to resulting image.
+	 * @attention This function must be called between @ref begin and @ref end.
+	 */
+	[[nodiscard]] const void* bake(vec2<int>& dimentions, nk_font_atlas_format fmt)
+	{
+		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, fmt);
+	}
+
+	void end(nk_handle texture, struct nk_draw_null_texture* texture_null = nullptr) // TODO needs documentation
+	{
+		nk_font_atlas_end(&m_atlas, texture, texture_null);
+	}
+
+	/**
+	 * @brief Free any resources that were allocated for the baking process. Can be called after @ref end.
+	 */
+	void cleanup()
+	{
+		nk_font_atlas_cleanup(&m_atlas);
+	}
+
+	///@}
 
 private:
-	nk_context* m_ctx;
-	func_type* m_func = nullptr;
+	font_atlas() = default;
+
+	nk_font_atlas m_atlas = {};
+	bool m_initialized = false;
 };
+
+#endif // NK_INCLUDE_FONT_BAKING
+
+///@} // font_handling
 
 /**
- * @brief default scope guard, just calls the function in dtor
- */
-class scope_guard : public scope_guard_base<void (nk_context*)>
-{
-public:
-	// bring 2-argument ctor
-	using scope_guard_base::scope_guard_base;
-
-	// required because explicit destructor disables move (rule of 5)
-	scope_guard(const scope_guard&) = delete;
-	scope_guard(scope_guard&&) noexcept = default;
-	scope_guard& operator=(const scope_guard&) = delete;
-	scope_guard& operator=(scope_guard&&) noexcept = delete;
-
-	/**
-	 * @brief Reset state of this guard. Will call end function if active.
-	 */
-	void reset()
-	{
-		func_type* func = get_func();
-		if (func)
-		{
-			(*func)(&get_context());
-			set_func(nullptr);
-		}
-	}
-
-	~scope_guard()
-	{
-		reset();
-	}
-};
-
-class scoped_override_guard : public scope_guard_base<nk_bool (nk_context*)>
-{
-public:
-	// bring 2-argument ctor
-	using scope_guard_base::scope_guard_base;
-
-	// required because explicit destructor disables move (rule of 5)
-	scoped_override_guard(const scoped_override_guard&) = delete;
-	scoped_override_guard(scoped_override_guard&&) noexcept = default;
-	scoped_override_guard& operator=(const scoped_override_guard&) = delete;
-	scoped_override_guard& operator=(scoped_override_guard&&) noexcept = delete;
-
-	~scoped_override_guard()
-	{
-		reset();
-	}
-
-	explicit operator bool() const
-	{
-		return is_scope_active();
-	}
-
-	void reset()
-	{
-		func_type* func = get_func();
-		if (func)
-		{
-			const nk_bool result = (*func)(&get_context());
-			set_func(nullptr);
-			NK_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
-		}
-	}
-};
-
-///@}
-
-// -------- library implementation --------
-
-/**
- * @defgroup main Main library types
- * @brief Main contents of the library.
+ * @defgroup core Core
+ * @brief Context, Windows and Widgets.
  * @details The library's core are simple classes that wrap underlying begin/end calls.
  * In Nuklear, pretty much every function uses the `nk_context` struct.
  * In Nukleus, they have been grouped by usage patterns and lifetime requirements.
@@ -2405,8 +2421,14 @@ public:
  *   - @ref event_input
  *   - @ref window
  *     - @ref tree
- *     - @ref layout
+ *     - @ref layout, @ref layout_row, @ref layout_row_template, @ref layout_space
  *       - @ref group
+ *     - @ref menu
+ *     - @ref combobox
+ *     - @ref contextual
+ *     - @ref popup
+ *     - @ref chart
+ *     - @ref canvas
  *
  * Each class also gives an access to the underlying context object if you ever have a need to use Nuklear directly.
  *
@@ -5884,6 +5906,8 @@ private:
 	bool m_valid = false;
 };
 
-///@}
+///@} // core
+
+///@} // main
 
 } // namespace nk
