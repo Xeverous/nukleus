@@ -929,7 +929,7 @@ inline double strtod(const char* str) { return nk_strtod(str, nullptr); }
 #endif
 
 // TODO this is undocumented (implements very narrow set of regex operators)
-// strfilter(const char* text, const char* regexp);
+// int strfilter(const char* text, const char* regexp);
 
 /**
  * @brief perform fuzzy string search
@@ -2674,7 +2674,6 @@ public:
 	/**
 	 * @name Group API
 	 * Make a group. All groups requires a previous layouting function to specify a pos/size.
-	 * TODO better requirement description?
 	 * @{
 	 */
 
@@ -3897,8 +3896,8 @@ public:
 	 * @brief Premade row - repeating layout where each widget has its unique size specified in advance.
 	 * @param fmt Either `NK_DYNAMIC` for window ratio or `NK_STATIC` for fixed size columns.
 	 * @param height Height of each widget in row or zero for auto layouting.
-	 * @param cols Number of widgets inside row.
-	 * @param ratio TODO
+	 * @param cols Number of widgets inside row and also the array length of @p ratio
+	 * @param ratio array of widget widths, if @p fmt is `NK_STATIC` - in pixels, if `NK_DYNAMIC` - in ratio to window
 	 * @return Blank layout guard object
 	 * @attention This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
 	 * result of this function. You may still want to save it to gain access to layout functions (e.g. groups).
@@ -5280,7 +5279,8 @@ public:
 	 * @param user_font Previously initialized font handle.
 	 * @return Context object - always check @ref is_valid after the call.
 	 *
-	 * TODO warning: make sure the passed memory block is aligned correctly for `nk_draw_commands`.
+	 * @attention Make sure the passed memory block is aligned correctly for `nk_draw_commands`.
+	 * TODO needs more specifics.
 	 */
 	static context init_fixed(void* memory, nk_size size, const nk_user_font& user_font)
 	{
