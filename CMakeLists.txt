@@ -5,7 +5,6 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(nukleus
-	VERSION 1.0.0 # how to do versioning? base on nuklear?
 	DESCRIPTION "modern C++ wrapper library for Nuklear C library"
 	LANGUAGES CXX)
 
@@ -73,10 +72,6 @@ if(NOT NUKLEAR_HEADER_DIR)
 	message(FATAL "Specify path to directory with nuklear.h by setting NUKLEAR_HEADER_DIR")
 endif()
 
-set(NUKLEUS_SOURCES
-	src/nukleus/nukleus.hpp
-)
-
 if(NUKLEUS_BUILD_SEPARATELY)
 	if(NUKLEUS_BUILD_SHARED_LIB)
 		add_library(nukleus SHARED)
@@ -84,9 +79,9 @@ if(NUKLEUS_BUILD_SEPARATELY)
 		add_library(nukleus STATIC)
 	endif()
 
-	target_sources(nukleus PUBLIC ${NUKLEUS_SOURCES} src/nukleus/nukleus.cpp)
-	target_include_directories(nukleus PUBLIC ${NUKLEAR_HEADER_DIR} src)
-	target_compile_options(nukleus PUBLIC
+	target_sources(nukleus PUBLIC nukleus.hpp demo/implementation.cpp)
+	target_include_directories(nukleus PUBLIC ${NUKLEAR_HEADER_DIR} .)
+	target_compile_options(nukleus PRIVATE
 		# GCC's -Wconvertion is too aggressive with no way to silence it
 		$<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic -Wno-deprecated-copy -ffast-math
 			-Wsuggest-attribute=noreturn -Wduplicated-branches -Wduplicated-cond -Wfloat-equal
@@ -132,6 +127,6 @@ if(NUKLEUS_BUILD_SEPARATELY)
 	option_to_define(NK_ZERO_COMMAND_MEMORY)
 else()
 	add_library(nukleus INTERFACE)
-	target_sources(nukleus INTERFACE ${NUKLEUS_SOURCES})
-	target_include_directories(nukleus INTERFACE ${NUKLEAR_HEADER_DIR} src)
+	target_sources(nukleus INTERFACE nukleus.hpp)
+	target_include_directories(nukleus INTERFACE ${NUKLEAR_HEADER_DIR} .)
 endif()
