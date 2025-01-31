@@ -7,142 +7,217 @@
 // -------- compiler configuration --------
 
 #if __cplusplus >= 201402L
-#define NUKLEUS_CPP14_CONSTEXPR constexpr
+	#define NUKLEUS_CPP14
+	#define NUKLEUS_CPP14_CONSTEXPR constexpr
 #else
-#define NUKLEUS_CPP14_CONSTEXPR
+	#define NUKLEUS_CPP14_CONSTEXPR
 #endif
 
 #if __cplusplus >= 201703L
-#define NUKLEUS_CPP17_CONSTEXPR constexpr
+	#define NUKLEUS_CPP17
+	#define NUKLEUS_CPP17_CONSTEXPR constexpr
 #else
-#define NUKLEUS_CPP17_CONSTEXPR
+	#define NUKLEUS_CPP17_CONSTEXPR
 #endif
 
 #if __cplusplus >= 202002L
-#define NUKLEUS_CPP20_CONSTEXPR constexpr
+	#define NUKLEUS_CPP20
+	#define NUKLEUS_CPP20_CONSTEXPR constexpr
 #else
-#define NUKLEUS_CPP20_CONSTEXPR
+	#define NUKLEUS_CPP20_CONSTEXPR
 #endif
 
 #if __cplusplus >= 202302L
-#define NUKLEUS_CPP23_CONSTEXPR constexpr
+	#define NUKLEUS_CPP23
+	#define NUKLEUS_CPP23_CONSTEXPR constexpr
 #else
-#define NUKLEUS_CPP23_CONSTEXPR
+	#define NUKLEUS_CPP23_CONSTEXPR
+#endif
+
+// Unlike GCC and Clang:
+// - MSVC requires annotations on both declaration and definition of a function.
+// - The annotation needs to be at the start of the declaration/definition (GCC and Clang allows either).
+// - The annotation requires /analyze compiler switch to work.
+//
+// Since Nukleus is header-only and uses inline functions only:
+// - There is no declaration/definition problem.
+// - The macro should be used at the very start of a statement that declares/defines a function.
+#ifdef NUKLEUS_CPP17
+	#define NUKLEUS_NODISCARD [[nodiscard]]
+#else
+	#if defined(__GNUC__) && (__GNUC__ >= 4) // clang also defines these
+		#define NUKLEUS_NODISCARD __attribute__((warn_unused_result))
+	#elif defined(_MSC_VER) && (_MSC_VER >= 1700)
+		#define NUKLEUS_NODISCARD _Check_return_
+	#else
+		#define NUKLEUS_NODISCARD
+	#endif
 #endif
 
 // -------- build configuration --------
-
-/**
- * Default implementation for non-boolean build options for Nuklear.
- * Don't edit these, instead TODO CMake
- */
-
-// ---- handled through CMake ----
-// (not needed to be defined here)
-
-// #define NK_PRIVATE
-
-// stdlib options - only implementation (no changes in the API or behavior)
-// #define NK_INCLUDE_FIXED_TYPES
-// #define NK_INCLUDE_STANDARD_BOOL
-
-// stdlib options - API additions
-// #define NK_INCLUDE_DEFAULT_ALLOCATOR
-// #define NK_INCLUDE_STANDARD_IO
-// #define NK_INCLUDE_STANDARD_VARARGS
-
-// font options
-// #define NK_INCLUDE_FONT_BAKING
-// #define NK_INCLUDE_DEFAULT_FONT
-
-// rendering options
-// #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-// #define NK_INCLUDE_COMMAND_USERDATA
-// #define NK_UINT_DRAW_INDEX
-
-// behavior options
-// #define NK_BUTTON_TRIGGER_ON_RELEASE
-// #define NK_KEYSTATE_BASED_INPUT
-// #define NK_ZERO_COMMAND_MEMORY
-
-// ---- implementation limits ----
-// (all on default)
-
-// #define NK_MAX_NUMBER_BUFFER
-// #define NK_BUFFER_DEFAULT_INITIAL_SIZE
-// #define NK_INPUT_MAX
 
 // ---- implementation dependencies ----
 
 // If you don't define this, nuklear will use assert().
 // #define NK_ASSERT
+// Nuklear exposes its assertion macro only under NK_IMPLEMENTATION.
+// Because Nukleus needs assertions in its header, it has to have its own assertion macro.
+// You are free to supply your own implementation though, for both libraries.
+#ifndef NUKLEUS_ASSERT
+	#ifdef NUKLEUS_AVOID_STDLIB
+		#error "If you want to avoid standard library headers, you need to define your own NUKLEUS_ASSERT"
+	#endif
 
-// All of following options (if defined) should be only defined for the implementation mode.
+	#include <assert.h>
+	#define NUKLEUS_ASSERT(expr) assert(expr)
+	#define NUKLEUS_ASSERT_MSG(expr, msg) NUKLEUS_ASSERT((expr) && (msg))
+#endif
+
+#ifndef NK_MAX_NUMBER_BUFFER
+	#define NK_MAX_NUMBER_BUFFER 16 // should be more than enough
+#endif
+
+#ifndef NUKLEUS_AVOID_STDLIB
+	#include <initializer_list>
+#endif
+
+// All of the following options (if defined) need to be defined for the implementation mode.
 #ifdef NK_IMPLEMENTATION
-
-#include <string.h>
 
 // You can define this to 'memset' or your own memset implementation replacement.
 // If not nuklear will use its own version.
 #ifndef NK_MEMSET
-#define NK_MEMSET memset
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <string.h>
+		#define NK_MEMSET memset
+	#endif
 #endif
 
 // You can define this to 'memcpy' or your own memcpy implementation replacement.
 // If not nuklear will use its own version.
 #ifndef NK_MEMCPY
-#define NK_MEMCPY memcpy
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <string.h>
+		#define NK_MEMCPY memcpy
+	#endif
 #endif
 
 // You can define this to your own inverse sqrt implementation replacement.
 // If not nuklear will use its own slow and not highly accurate version.
-// #define NK_INV_SQRT
+#ifndef NK_INV_SQRT
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <math.h>
+		inline float nk_inv_sqrt_stdlib(float x)
+		{
+			return 1.0f / sqrtf(x);
+		}
+		#define NK_INV_SQRT nk_inv_sqrt_stdlib
+	#endif
+#endif
 
 // You can define this to 'sinf' or your own sine implementation replacement.
 // If not nuklear will use its own approximation implementation.
-// #define NK_SIN
+#ifndef NK_SIN
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <math.h>
+		#define NK_SIN sinf
+	#endif
+#endif
 
 // You can define this to 'cosf' or your own cosine implementation replacement.
 // If not nuklear will use its own approximation implementation.
-// #define NK_COS
-
-#include <stdlib.h>
+#ifndef NK_COS
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <math.h>
+		#define NK_COS cosf
+	#endif
+#endif
 
 // You can define this to strtod or your own string to double conversion implementation replacement.
 // If not defined nuklear will use its own imprecise and possibly unsafe version (does not handle nan or infinity!).
-// TODO const problem
-// #ifndef NK_STRTOD
-// #define NK_STRTOD strtod
-// #endif
+#ifndef NK_STRTOD
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <stdlib.h>
+		#define NK_STRTOD strtod
+	#endif
+#endif
 
 // You can define this to dtoa or your own double to string conversion implementation replacement.
 // If not defined nuklear will use its own imprecise and possibly unsafe version (does not handle nan or infinity!).
-// TODO implement the function with snprintf
-// #ifndef NK_DTOA
-// #define NK_DTOA dtoa
-// #endif
+#ifndef NK_DTOA
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#define NK_DTOA nk_dtoa_stdlib
+
+		// Note: there is <charconv> in C++17 but some compilers do not implement it even at C++17.
+		// GCC 12.3.0 has it, can compile it but always returns error on floating-point overload.
+		// Thus, an additional flag is required to enable this implementation.
+		#if __cplusplus >= 201703L && defined(NUKLEUS_USE_CHARCONV)
+			#include <charconv>
+			inline char* nk_dtoa_stdlib(char* s, double n)
+			{
+				NUKLEUS_ASSERT(s != nullptr);
+				if (s == nullptr)
+					return nullptr;
+
+				// -1 because to_chars does not add null terminator
+				const std::to_chars_result result =
+					std::to_chars(s, s + NK_MAX_NUMBER_BUFFER - 1, n, std::chars_format::fixed);
+
+				if (static_cast<int>(result.ec) == 0) {
+					*result.ptr = '\0';
+				}
+				else {
+					s[0] = '?';
+					s[1] = '\0';
+				}
+
+				return s;
+			}
+		#else
+			#include <stdio.h>
+			inline char* nk_dtoa_stdlib(char* s, double n)
+			{
+				NUKLEUS_ASSERT(s != nullptr);
+				if (s == nullptr)
+					return nullptr;
+
+				if (snprintf(s, NK_MAX_NUMBER_BUFFER, "%f", n) < 0) {
+					s[0] = '?';
+					s[1] = '\0';
+				}
+
+				return s;
+			}
+		#endif
+	#endif
+#endif
 
 // If you define NK_INCLUDE_STANDARD_VARARGS as well as NK_INCLUDE_STANDARD_IO and want to be safe define this to
 // vsnprintf on compilers supporting later versions of C or C++. By default nuklear will check for your stdlib version
 // in C as well as compiler version in C++. if vsnprintf is available it will define it to vsnprintf directly.
 // If not defined and if you have older versions of C or C++ it will be defined to vsprintf which is unsafe.
 #ifndef NK_VSNPRINTF
-#define NK_VSNPRINTF vsnprintf
+	#ifndef NUKLEUS_AVOID_STDLIB
+		#include <stdio.h>
+		#define NK_VSNPRINTF vsnprintf
+	#endif
 #endif
 
 #endif // NK_IMPLEMENTATION
 
-// Silence some warnings from nuklear.
+// Silence some warnings from Nuklear.
 // The library implementation seems to not care about few minor ones.
 #if defined(__clang__)
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wfloat-equal"
 	#pragma clang diagnostic ignored "-Wsign-conversion"
+	#pragma clang diagnostic ignored "-Wunused-function"
 #elif defined(__GNUG__)
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wfloat-equal"
 	#pragma GCC diagnostic ignored "-Wsign-conversion"
 	#pragma GCC diagnostic ignored "-Wint-in-bool-context"
+	#pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 
 #include <nuklear.h>
@@ -157,10 +232,8 @@
 TODO possible improvements:
 - document each blank function that should not be used
 - LIST VIEW (3089): nk_list_view_begin, nk_list_view_end - not implemented - no docs and no examples
-- COMBOBOX - unclear overloads, const issues
 - IMAGE, 9-SLICE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
-- think whether it would make sense to implement point+extent (or even further a full overloaded operator API)
 - UTF-8 - undocumented
 - DRAW LIST - uncodumented, no examples
 */
@@ -188,34 +261,37 @@ struct false_type { static constexpr bool value = false; };
 
 template <typename T, typename U> struct is_same       : false_type {};
 template <typename T>             struct is_same<T, T> : true_type {};
-template <typename T, typename U> constexpr bool is_same_v = is_same<T, U>::value;
 
 template <typename T> struct is_pointer      : false_type {};
 template <typename T> struct is_pointer<T*>  : true_type {};
-template <typename T> constexpr bool is_pointer_v = is_pointer<T>::value;
 
 template <typename>   struct is_lvalue_reference     : false_type {};
 template <typename T> struct is_lvalue_reference<T&> : true_type {};
-template <typename T> constexpr bool is_lvalue_reference_v = is_lvalue_reference<T>::value;
 
 template <typename>   struct is_rvalue_reference      : false_type {};
 template <typename T> struct is_rvalue_reference<T&&> : true_type {};
-template <typename T> constexpr bool is_rvalue_reference_v = is_rvalue_reference<T>::value;
 
 template <typename T> struct is_reference      : false_type {};
 template <typename T> struct is_reference<T&>  : true_type {};
 template <typename T> struct is_reference<T&&> : true_type {};
-template <typename T> constexpr bool is_reference_v = is_reference<T>::value;
 
 template <typename>   struct is_const          : false_type {};
 template <typename T> struct is_const<const T> : true_type {};
-template <typename T> constexpr bool is_const_v = is_const<T>::value;
 
 template <typename>   struct is_volatile             : false_type {};
 template <typename T> struct is_volatile<volatile T> : true_type {};
-template <typename T> constexpr bool is_volatile_v = is_volatile<T>::value;
 
-///@} // detection_traits
+#ifdef NUKLEUS_CPP14 // C++14 variable templates
+template <typename T, typename U> constexpr bool is_same_v = is_same<T, U>::value;
+template <typename T> constexpr bool is_pointer_v = is_pointer<T>::value;
+template <typename T> constexpr bool is_lvalue_reference_v = is_lvalue_reference<T>::value;
+template <typename T> constexpr bool is_rvalue_reference_v = is_rvalue_reference<T>::value;
+template <typename T> constexpr bool is_reference_v = is_reference<T>::value;
+template <typename T> constexpr bool is_const_v = is_const<T>::value;
+template <typename T> constexpr bool is_volatile_v = is_volatile<T>::value;
+#endif
+
+/// @} // detection_traits
 
 /**
  * @defgroup transformation_traits Transformation Traits
@@ -236,7 +312,10 @@ template <typename T> using remove_cv_t = typename remove_cv<T>::type;
 template <typename T> struct remove_cvref { using type = remove_cv_t<remove_reference_t<T>>; };
 template <typename T> using remove_cvref_t = typename remove_cvref<T>::type;
 
-///@} // transformation_traits
+template <typename T> struct type_identity { using type = T; };
+template <typename T> using type_identity_t = typename type_identity<T>::type;
+
+/// @} // transformation_traits
 
 /**
  * @defgroup meta_traits Meta Traits
@@ -250,15 +329,29 @@ template <bool B, typename T = void> using enable_if_t = typename enable_if<B, T
 template <typename... Ts> struct void_t_impl { using type = void; };
 template <typename... Ts> using void_t = typename void_t_impl<Ts...>::type;
 
-///@} // meta_traits
+/// @} // meta_traits
 
-///@} // type_traits
+/// @} // type_traits
 
 /**
  * @defgroup utility Utility functions
  * @brief Implementation of some functions from \<utility\>.
  * @{
  */
+
+inline bool is_aligned(const void* ptr, nk_size alignment) noexcept
+{
+	// Note: the standard does not guuarantee that a conversion from
+	// pointer to integer preserves the numeric representation of the address.
+	// I don't know of any platform/toolchain where this doesn't work though.
+	return !(reinterpret_cast<nk_size>(ptr) % alignment);
+}
+
+template <typename T>
+bool is_aligned(const void* ptr) noexcept
+{
+	return is_aligned(ptr, alignof(T));
+}
 
 template <typename T>
 constexpr remove_reference_t<T>&& move(T&& t) noexcept
@@ -275,7 +368,7 @@ constexpr T&& forward(remove_reference_t<T>& t) noexcept
 template<typename T>
 constexpr T&& forward(remove_reference_t<T>&& t) noexcept
 {
-	static_assert(!is_lvalue_reference_v<T>, "forward must not be used to convert an rvalue to an lvalue");
+	static_assert(!is_lvalue_reference<T>::value, "forward must not be used to convert an rvalue to an lvalue");
 	return static_cast<T&&>(t);
 }
 
@@ -298,6 +391,18 @@ NUKLEUS_CPP14_CONSTEXPR T exchange(T& obj, U&& new_value)
 	return old_value;
 }
 
+template <typename T, unsigned N>
+constexpr unsigned size(const T (&/*array*/)[N]) noexcept
+{
+	return N;
+}
+
+template <typename T, unsigned N>
+constexpr signed ssize(const T (&/*array*/)[N]) noexcept
+{
+	return static_cast<signed>(N);
+}
+
 namespace detail {
 
 /**
@@ -309,18 +414,18 @@ namespace detail {
 struct output_bool
 {
 #ifdef NK_INCLUDE_STANDARD_BOOL // nk_bool is bool
-	output_bool(bool& b)
+	/* implicit */ output_bool(bool& b)
 	: m_b(b)
 	{}
 
-	operator nk_bool*()
+	/* implicit */ operator nk_bool*()
 	{
 		return &m_b;
 	}
 
 	bool& m_b;
 #else // nk_bool is int
-	output_bool(bool& b)
+	/* implicit */ output_bool(bool& b)
 	: m_b(b)
 	, m_nk_b(b)
 	{}
@@ -330,7 +435,7 @@ struct output_bool
 		m_b = m_nk_b == nk_true;
 	}
 
-	operator nk_bool*()
+	/* implicit */ operator nk_bool*()
 	{
 		return &m_nk_b;
 	}
@@ -342,9 +447,9 @@ struct output_bool
 
 }
 
-///@} // utility
+/// @} // utility
 
-///@} // stdlib
+/// @} // stdlib
 
 /**
  * @defgroup basic Basic
@@ -356,8 +461,11 @@ struct output_bool
  * @{
  */
 
+// Need to use struct/enum to disambiguate from functions with the same name
 using byte = nk_byte;
 using hash = nk_hash;
+using rune = nk_rune;
+using uint = nk_uint;
 
 using color_format = nk_color_format;
 using image = struct nk_image;
@@ -370,13 +478,31 @@ using text_align = nk_text_align;
 using style_button = nk_style_button;
 using button_behavior = enum nk_button_behavior;
 
-///@} // types
+/// @} // types
 
 /**
  * @defgroup math Math
  * @details Nukleus math types are implicitly convertible to/from Nuklear types if possible.
  * @{
  */
+
+template <typename T>
+constexpr T max_unsigned_value()
+{
+	static_assert(static_cast<T>(0) < static_cast<T>(-1));
+	// use guuaranteed overflow on unsigned types
+	return static_cast<T>(-1);
+}
+
+template <typename T>
+constexpr T max_signed_value()
+{
+	static_assert(static_cast<T>(0) > static_cast<T>(-1));
+	// shift twice with -1 in between to avoid overflow
+	return
+		(static_cast<T>(1) << (sizeof(T) * 8 - 2)) - static_cast<T>(1) +
+		(static_cast<T>(1) << (sizeof(T) * 8 - 2));
+}
 
 /**
  * @brief 2D vector type mirroring `nk_vec2(i)`, implicitly convertible to/from Nuklear's types
@@ -391,20 +517,20 @@ struct vec2
 	: x(x), y(y)
 	{}
 
-	template <enable_if<is_same_v<T, float>>* = nullptr>
+	template <enable_if<is_same<T, float>::value>* = nullptr>
 	vec2(struct nk_vec2 v)
 	: x(v.x), y(v.y)
 	{}
 
-	template <enable_if<is_same_v<T, short>>* = nullptr>
+	template <enable_if<is_same<T, short>::value>* = nullptr>
 	vec2(struct nk_vec2i v)
 	: x(v.x), y(v.y)
 	{}
 
-	template <enable_if<is_same_v<T, float>>* = nullptr>
+	template <enable_if<is_same<T, float>::value>* = nullptr>
 	operator struct nk_vec2() const { return {x, y}; }
 
-	template <enable_if<is_same_v<T, short>>* = nullptr>
+	template <enable_if<is_same<T, short>::value>* = nullptr>
 	operator struct nk_vec2i() const { return {x, y}; }
 
 	T x{};
@@ -428,12 +554,12 @@ struct rect
 	: x(pos.x), y(pos.y), w(size.x), h(size.y)
 	{}
 
-	template <enable_if<is_same_v<T, float>>* = nullptr>
+	template <enable_if<is_same<T, float>::value>* = nullptr>
 	rect(struct nk_rect r)
 	: x(r.x), y(r.y), w(r.w), h(r.h)
 	{}
 
-	template <enable_if<is_same_v<T, short>>* = nullptr>
+	template <enable_if<is_same<T, short>::value>* = nullptr>
 	rect(struct nk_recti r)
 	: x(r.x), y(r.y), w(r.w), h(r.h)
 	{}
@@ -441,10 +567,10 @@ struct rect
 	vec2<T> pos() const { return {x, y}; }
 	vec2<T> size() const { return {w, h}; }
 
-	template <enable_if<is_same_v<T, float>>* = nullptr>
+	template <enable_if<is_same<T, float>::value>* = nullptr>
 	operator struct nk_rect() const { return {x, y, w, h}; }
 
-	template <enable_if<is_same_v<T, short>>* = nullptr>
+	template <enable_if<is_same<T, short>::value>* = nullptr>
 	operator struct nk_recti() const { return {x, y, w, h}; }
 
 	T x{};
@@ -473,7 +599,7 @@ inline hash murmur_hash(const void* data, int len, hash seed)
 	return nk_murmur_hash(data, len, seed);
 }
 
-///@} // math
+/// @} // math
 
 /**
  * @defgroup color Color and Styling
@@ -521,14 +647,14 @@ struct color
 	 */
 
 	/// @brief clamps values in range [0, 255]
-	static color from_rgb(int r, int g, int b) { return nk_rgb(r, g, b); }
-	static color from_rgb(nk_byte r, nk_byte g, nk_byte b) { return nk_color{r, g, b, static_cast<nk_byte>(255)}; }
+	NUKLEUS_NODISCARD static color from_rgb(int r, int g, int b) { return nk_rgb(r, g, b); }
+	NUKLEUS_NODISCARD static color from_rgb(nk_byte r, nk_byte g, nk_byte b) { return nk_color{r, g, b, static_cast<nk_byte>(255)}; }
 	/// @brief clamps values in range [0, 255]; [rgb, rgb+3) must be a valid range
-	static color from_rgb(const int* rgb) { return nk_rgb_iv(rgb); }
+	NUKLEUS_NODISCARD static color from_rgb(const int* rgb) { return nk_rgb_iv(rgb); }
 	/// @brief [rgb, rgb+3) must be a valid range
-	static color from_rgb(const nk_byte* rgb) { return nk_rgb_bv(rgb); }
+	NUKLEUS_NODISCARD static color from_rgb(const nk_byte* rgb) { return nk_rgb_bv(rgb); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from RGB (float)
@@ -536,11 +662,11 @@ struct color
 	 */
 
 	/// @brief clamps values in range [0, 1.0]
-	static color from_rgb(float r, float g, float b) { return nk_rgb_f(r, g, b); }
+	NUKLEUS_NODISCARD static color from_rgb(float r, float g, float b) { return nk_rgb_f(r, g, b); }
 	/// @brief clamps values in range [0, 1.0]; [rgb, rgb+3) must be a valid range
-	static color from_rgb(const float* rgb) { return nk_rgb_fv(rgb); }
+	NUKLEUS_NODISCARD static color from_rgb(const float* rgb) { return nk_rgb_fv(rgb); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from RGBA (int)
@@ -548,18 +674,18 @@ struct color
 	 */
 
 	/// @brief clamps values in range [0, 255]
-	static color from_rgba(int r, int g, int b, int a) { return nk_rgba(r, g, b, a); }
-	static color from_rgba(nk_byte r, nk_byte g, nk_byte b, nk_byte a) { return nk_color{r, g, b, a}; }
+	NUKLEUS_NODISCARD static color from_rgba(int r, int g, int b, int a) { return nk_rgba(r, g, b, a); }
+	NUKLEUS_NODISCARD static color from_rgba(nk_byte r, nk_byte g, nk_byte b, nk_byte a) { return nk_color{r, g, b, a}; }
 	/// @brief clamps values in range [0, 255]; [rgba, rgba+4) must be a valid range
-	static color from_rgba(const int* rgba) { return nk_rgba_iv(rgba); }
+	NUKLEUS_NODISCARD static color from_rgba(const int* rgba) { return nk_rgba_iv(rgba); }
 	/// @brief [rgba, rgba+4) must be a valid range
-	static color from_rgba(const nk_byte* rgba) { return nk_rgba_bv(rgba); }
+	NUKLEUS_NODISCARD static color from_rgba(const nk_byte* rgba) { return nk_rgba_bv(rgba); }
 
-	static color from_rgba(nk_uint rgba) { return nk_rgba_u32(rgba); }
+	NUKLEUS_NODISCARD static color from_rgba(nk_uint rgba) { return nk_rgba_u32(rgba); }
 	/// @brief multiply other color by a factor, alpha unchanged
-	static color from_factor(nk_color col, float factor) { return nk_rgb_factor(col, factor); }
+	NUKLEUS_NODISCARD static color from_factor(nk_color col, float factor) { return nk_rgb_factor(col, factor); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from RGBA (float)
@@ -567,11 +693,11 @@ struct color
 	 */
 
 	/// @brief clamps values in valid range [0, 1.0]
-	static color from_rgba(float r, float g, float b, float a) { return nk_rgba_f(r, g, b, a); }
+	NUKLEUS_NODISCARD static color from_rgba(float r, float g, float b, float a) { return nk_rgba_f(r, g, b, a); }
 	/// @brief clamps values in range [0, 1.0]; [rgba, rgba+4) must be a valid range
-	static color from_rgba(const float* rgba) { return nk_rgba_fv(rgba); }
+	NUKLEUS_NODISCARD static color from_rgba(const float* rgba) { return nk_rgba_fv(rgba); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from HSV (int)
@@ -579,25 +705,25 @@ struct color
 	 */
 
 	/// @brief clamps values in range [0, 255]
-	static color from_hsv(int h, int s, int v) { return nk_hsv(h, s, v); }
-	static color from_hsv(nk_byte h, nk_byte s, nk_byte v) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, 1.0f); }
+	NUKLEUS_NODISCARD static color from_hsv(int h, int s, int v) { return nk_hsv(h, s, v); }
+	NUKLEUS_NODISCARD static color from_hsv(nk_byte h, nk_byte s, nk_byte v) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, 1.0f); }
 	/// @brief clamps values in range [0, 255]; [hsv, hsv+3) must be a valid range
-	static color from_hsv(const int* hsv) { return nk_hsv_iv(hsv); }
+	NUKLEUS_NODISCARD static color from_hsv(const int* hsv) { return nk_hsv_iv(hsv); }
 	/// @brief [hsv, hsv+3) must be a valid range
-	static color from_hsv(const nk_byte* hsv) { return nk_hsv_bv(hsv); }
+	NUKLEUS_NODISCARD static color from_hsv(const nk_byte* hsv) { return nk_hsv_bv(hsv); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from HSV (float)
 	 * @{
 	 */
 
-	static color from_hsv(float h, float s, float v) { return nk_hsv_f(h, s, v); }
+	NUKLEUS_NODISCARD static color from_hsv(float h, float s, float v) { return nk_hsv_f(h, s, v); }
 	/// @brief [hsv, hsv+3) must be a valid range
-	static color from_hsv(const float* hsv) { return nk_hsv_fv(hsv); }
+	NUKLEUS_NODISCARD static color from_hsv(const float* hsv) { return nk_hsv_fv(hsv); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from HSVA (int)
@@ -605,25 +731,25 @@ struct color
 	 */
 
 	/// @brief clamps values in range [0, 255]
-	static color from_hsva(int h, int s, int v, int a) { return nk_hsva(h, s, v, a); }
-	static color from_hsva(nk_byte h, nk_byte s, nk_byte v, nk_byte a) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, a / 255.0f); }
+	NUKLEUS_NODISCARD static color from_hsva(int h, int s, int v, int a) { return nk_hsva(h, s, v, a); }
+	NUKLEUS_NODISCARD static color from_hsva(nk_byte h, nk_byte s, nk_byte v, nk_byte a) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, a / 255.0f); }
 	/// @brief clamps values in range [0, 255]; [hsv, hsv+4) must be a valid range
-	static color from_hsva(const int* hsva) { return nk_hsva_iv(hsva); }
+	NUKLEUS_NODISCARD static color from_hsva(const int* hsva) { return nk_hsva_iv(hsva); }
 	/// @brief [hsva, hsva+4) must be a valid range
-	static color from_hsva(const nk_byte* hsva) { return nk_hsva_bv(hsva); }
+	NUKLEUS_NODISCARD static color from_hsva(const nk_byte* hsva) { return nk_hsva_bv(hsva); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from HSVA (float)
 	 * @{
 	 */
 
-	static color from_hsva(float h, float s, float v, float a) { return nk_hsva_f(h, s, v, a); }
+	NUKLEUS_NODISCARD static color from_hsva(float h, float s, float v, float a) { return nk_hsva_f(h, s, v, a); }
 	/// @brief [hsva, hsva+4) must be a valid range
-	static color from_hsva(const float* hsva) { return nk_hsva_fv(hsva); }
+	NUKLEUS_NODISCARD static color from_hsva(const float* hsva) { return nk_hsva_fv(hsva); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name from HEX
@@ -631,11 +757,11 @@ struct color
 	 */
 
 	/// @brief string should have the form "#RRGGBB" or "RRGGBB"
-	static color from_rgb_hex(const char* rgb) { return nk_rgb_hex(rgb); }
+	NUKLEUS_NODISCARD static color from_rgb_hex(const char* rgb) { return nk_rgb_hex(rgb); }
 	/// @brief string should have the form "#RRGGBBAA" or "RRGGBBAA"
-	static color from_rgba_hex(const char* rgba) { return nk_rgba_hex(rgba); }
+	NUKLEUS_NODISCARD static color from_rgba_hex(const char* rgba) { return nk_rgba_hex(rgba); }
 
-	///@}
+	/// @}
 
 	/**
 	 * @name to HEX
@@ -647,7 +773,7 @@ struct color
 	/// @brief [output, output+9) must be a valid range
 	void to_rgba_hex(char* output) const { nk_color_hex_rgba(output, *this); }
 
-	///@}
+	/// @}
 
 	nk_uint to_u32() const { return nk_color_u32(*this); }
 
@@ -696,10 +822,10 @@ struct colorf
 	 * @{
 	 */
 
-	static colorf from_hsva(float h, float s, float v, float a) { return nk_hsva_colorf(h, s, v, a); }
-	static colorf from_hsva(const float* hsva) { return nk_hsva_colorf(hsva[0], hsva[1], hsva[2], hsva[3]); } // should be nk_hsva_colorfv but it has a const issue
+	NUKLEUS_NODISCARD static colorf from_hsva(float h, float s, float v, float a) { return nk_hsva_colorf(h, s, v, a); }
+	NUKLEUS_NODISCARD static colorf from_hsva(const float* hsva) { return nk_hsva_colorfv(hsva); }
 
-	///@}
+	/// @}
 
 	float r = 0;
 	float g = 0;
@@ -832,15 +958,15 @@ public:
 
 	nk_color& operator[](nk_style_colors color_index)
 	{
-		NK_ASSERT(color_index < NK_COLOR_COUNT);
-		NK_ASSERT(color_index >= 0);
+		NUKLEUS_ASSERT(color_index < NK_COLOR_COUNT);
+		NUKLEUS_ASSERT(color_index >= 0);
 		return m_table[color_index];
 	}
 
 	nk_color operator[](nk_style_colors color_index) const
 	{
-		NK_ASSERT(color_index < NK_COLOR_COUNT);
-		NK_ASSERT(color_index >= 0);
+		NUKLEUS_ASSERT(color_index < NK_COLOR_COUNT);
+		NUKLEUS_ASSERT(color_index >= 0);
 		return m_table[color_index];
 	}
 
@@ -871,7 +997,7 @@ inline nk_style_item style_item_hide()
 	return nk_style_item_hide();
 }
 
-///@} // color
+/// @} // color
 
 /**
  * @defgroup string String utility functions
@@ -905,31 +1031,31 @@ inline int stricmpn(const char* s1, const char* s2, int n) { return nk_stricmpn(
 /**
  * @brief string to int
  * @param str string to convert
+ * @param endptr position after last character interpreted (with const casted away, ugly like strtol)
  * @return value or 0 if convertion failed
- * @details this function skips second `nk_strtoi` parameter due to API stability issue caused by const
  */
-inline int strtoi(const char* str) { return nk_strtoi(str, nullptr); }
+inline int strtoi(const char* str, char** endptr = nullptr) { return nk_strtoi(str, endptr); }
 
 /**
  * @brief string to float
  * @param str string to convert
+ * @param endptr position after last character interpreted (with const casted away, ugly like strtol)
  * @return value or 0 if convertion failed
- * @details this function skips second `nk_strtof` parameter due to API stability issue caused by const
  */
-inline float strtof(const char* str) { return nk_strtof(str, nullptr); }
+inline float strtof(const char* str, char** endptr = nullptr) { return nk_strtof(str, endptr); }
 
-#ifndef NK_STRTOD
 /**
- * @brief string to double, requires undefined `NK_STRTOD`
- * @param str string to convert
- * @return value or 0 if convertion failed
- * @details this function skips second `nk_strtod` parameter due to API stability issue caused by const
+ * @brief A simple string matching with support for few special characters
+ * - `C` matches any literal character C
+ * - `.` matches any single character
+ * - `^` matches the beginning of the input string
+ * - `$` matches the end of the input string
+ * - `*` matches zero or more occurrences of the previous character
+ * @param text text to filter
+ * @param regexp filter expression (not actual regex)
+ * @return non-zero value on match
  */
-inline double strtod(const char* str) { return nk_strtod(str, nullptr); }
-#endif
-
-// TODO this is undocumented (implements very narrow set of regex operators)
-// int strfilter(const char* text, const char* regexp);
+inline int strfilter(const char* text, const char* regexp) { return nk_strfilter(text, regexp); }
 
 /**
  * @brief perform fuzzy string search
@@ -952,7 +1078,7 @@ inline bool strmatch_fuzzy_text(const char* str, int str_len, const char* patter
 	return nk_strmatch_fuzzy_text(str, str_len, pattern, out_score) == nk_true;
 }
 
-///@} // string
+/// @} // string
 
 /**
  * @defgroup iterators_ranges Iterators and Ranges
@@ -1059,17 +1185,17 @@ template <typename Iterator>
 class range
 {
 public:
-	range(Iterator b, Iterator e)
+	constexpr range(Iterator b, Iterator e)
 	: m_begin(b)
 	, m_end(e)
 	{}
 
-	Iterator begin() const
+	constexpr Iterator begin() const
 	{
 		return m_begin;
 	}
 
-	Iterator end() const
+	constexpr Iterator end() const
 	{
 		return m_end;
 	}
@@ -1080,75 +1206,173 @@ private:
 };
 
 template <typename Iterator>
+constexpr bool operator==(range<Iterator> lhs, range<Iterator> rhs)
+{
+	return lhs.begin() == rhs.begin() && lhs.end() == rhs.end();
+}
+
+template <typename Iterator>
+constexpr bool operator!=(range<Iterator> lhs, range<Iterator> rhs)
+{
+	return !(lhs == rhs);
+}
+
+template <typename T>
 class span
 {
 public:
-	span(Iterator b, int length)
-	: m_begin(b)
+	template <unsigned N>
+	/* implicit */ constexpr span(T (&array)[N])
+	: m_begin(array)
+	, m_size(N)
+	{}
+
+	constexpr span(T* ptr, int length)
+	: m_begin(ptr)
 	, m_size(length)
 	{}
 
-	Iterator begin() const
+	constexpr T* data() const
 	{
 		return m_begin;
 	}
 
-	Iterator end() const
+	constexpr T* begin() const
+	{
+		return m_begin;
+	}
+
+	constexpr T* end() const
 	{
 		return m_begin + m_size;
 	}
 
-	int size() const
+	constexpr int size() const
 	{
 		return m_size;
 	}
 
+	constexpr bool empty() const
+	{
+		return size() == 0;
+	}
+
+	constexpr T& operator[](int index) const
+	{
+		return m_begin[index];
+	}
+
 private:
-	Iterator m_begin;
+	T* m_begin;
 	int m_size;
 };
 
-///@} // iterators_ranges
+template <typename T>
+constexpr bool operator==(span<T> lhs, span<T> rhs)
+{
+	return lhs.begin() == rhs.begin() && lhs.end() == rhs.end();
+}
+
+template <typename T>
+constexpr bool operator!=(span<T> lhs, span<T> rhs)
+{
+	return !(lhs == rhs);
+}
+
+template <typename T, unsigned N>
+constexpr span<T> make_span(T (&array)[N])
+{
+	return span<T>(array);
+}
+
+template <typename T, unsigned N>
+constexpr span<T> make_span(T* ptr, int length)
+{
+	return span<T>(ptr, length);
+}
+
+/// @} // iterators_ranges
 
 /**
  * @defgroup lifetime RAII support
- * @brief Types that implement support for scoped begin/end calls.
+ * @brief Types that implement support for scoped calls.
+ * @details @ref final_action implements the @ref finally keyword from other languages and
+ * should be used to defer an action to the end of scope: `auto _ = nk::finally([](){...});`.
+ *
+ * If you need full lifetime management consider using `std::unique_ptr` with custom deleter.
+ *
+ * Scope guard classes are used to implement Nuklear's cleanup requirements.
+ * These do not rely on final action because:
+ * - the implementation needs to store `nk_context` and a function pointer in an accessible way
+ * - the implementation can optimize out `bool` member by setting function pointer to null
+ *
+ * There are multiple such classes because Nuklear's scope management can differ in each case:
+ * - Does the `begin` call return `void` (A - always succeeds) or `bool` (B - check required)?
+ * - If the `begin` call returns `false`, should the `end` call be made? (B1 - YES, B2 - NO)
+ * - Can the `end` call fail? (B2+ - requires additional assertion) (B1+ does not exist)
+ *
+ * List of Nuklear's cases:
+ * - A: `begin` returns `void`, always call `end`, no check to perform
+ *   (`event_input`, most `layout`, `widget_disable`, `menubar`)
+ * - B1: `begin` returns `bool`, always call `end`, check on `bool`
+ *   (`window` - has special `operator bool` in order to support blank window)
+ * - B2: `begin` returns `bool`, call `end` if `bool`, check on `bool`
+ *   (`group`, `tree`, `chart`, `popup`, `combobox`, `contextual`, `menu`, `tooltip`)
+ * - B2+: `begin` returns `bool`, call `end` if `bool`, check on `bool`, `end` can fail (extra assert)
+ *   (`button_behavior`, any `style_*`)
+ *
+ * @ref scope_guard_base implements common code for other scope guard classes.
+ * It implements configurable `end` call (pass function pointer or null pointer to constructor).
+ * Particular implementations of `operator bool` are expected to be in derived types.
+ * Since class is not fully operational by itself, its destructor is protected.
+ * - @ref simple_scope_guard implements A.
+ * - @ref scope_guard implements B1 and B2.
+ * - @ref scoped_override_guard implements B2+
+ *
+ * Implementation notes:
+ * - A: inherit from @ref simple_scope_guard, always pass valid function pointer to ctor
+ * - B1: inherit from @ref scope_guard, always pass valid function pointer to ctor
+ * - B2: like B1 but pass nullptr to ctor on begin failure
+ * - B2+: inherit from @ref scoped_override_guard, pass nullptr to ctor on begin failure
+ * - If there are no additional calls to be made available,
+ *   the class can be used directly instead of inheriting from it
+ *   (some types inherit scope guards to offer widget-scope-limited functionality)
+ * - @ref window is B1 and should inherit @ref scope_guard but it inherits @ref simple_scope_guard
+ *   instead to implement its own `operator bool` because it also supports blank window instance
+ *
  * @{
  */
-
-// Added bool invoke to constructor and factory function to be able to
-// immediately cancel actions (useful for negative returns in Nuklear).
 
 /**
  * @brief Based on Core Guidelines `gsl::final_action`.
  * @tparam F function object type
  */
 template <typename F>
-class scoped_action
+class final_action
 {
 public:
 	static_assert(
-		!is_reference_v<F> && !is_const_v<F> && !is_volatile_v<F>,
-		"scoped_action should store its callable by value");
+		!is_reference<F>::value && !is_const<F>::value && !is_volatile<F>::value,
+		"final_action should store its callable by value");
 
-	explicit scoped_action(F f, bool invoke = true) noexcept
+	explicit final_action(F f, bool invoke = true) noexcept
 	: m_f(move(f))
 	, m_invoke(invoke)
 	{}
 
-	scoped_action(scoped_action&& other) noexcept
+	final_action(final_action&& other) noexcept
 	: m_f(move(other.m_f))
 	, m_invoke(exchange(other.m_invoke, false))
 	{}
 
 	// For some reason, gsl::final_action deletes move assignment.
-	// Perhaps scope guards should never be reset and always perform their action at the end of scope.
-	scoped_action& operator=(scoped_action&&) noexcept = delete;
+	// Perhaps it should never be reset and always perform its action at the end of scope.
+	final_action& operator=(final_action&&) noexcept = delete;
 
-	scoped_action(const scoped_action&) = delete;
-	scoped_action& operator=(const scoped_action&) = delete;
+	final_action(const final_action&) = delete;
+	final_action& operator=(const final_action&) = delete;
 
-	~scoped_action()
+	~final_action()
 	{
 		if (m_invoke)
 			m_f();
@@ -1159,51 +1383,11 @@ private:
 	bool m_invoke = true;
 };
 
-/**
- * @brief Adds bool state and a convertion to bool to scoped_action.
- * This allows to hold returns from Nuklear for additional checking.
- * Example: `if (auto result = ctx.f(); result)`
- * @tparam F function object type
- */
 template <typename F>
-class scoped_action_with_bool : public scoped_action<F>
+NUKLEUS_NODISCARD final_action<remove_cvref_t<F>>
+finally(F&& f, bool invoke = true) noexcept
 {
-public:
-	explicit scoped_action_with_bool(F f, bool state)
-	: scoped_action<F>(move(f))
-	, m_state(state)
-	{}
-
-	scoped_action_with_bool(scoped_action_with_bool&& other) noexcept
-	: scoped_action<F>(move(other))
-	, m_state(other.m_state)
-	{}
-
-	scoped_action_with_bool(const scoped_action_with_bool&) = delete;
-	scoped_action_with_bool& operator=(const scoped_action_with_bool&) = delete;
-	scoped_action_with_bool& operator=(scoped_action_with_bool&&) noexcept = delete;
-
-	explicit operator bool() const noexcept
-	{
-		return m_state;
-	}
-
-private:
-	bool m_state;
-};
-
-template <typename F>
-[[nodiscard]] scoped_action<remove_cvref_t<F>>
-make_scoped(F&& f, bool invoke = true) noexcept
-{
-	return scoped_action<remove_cvref_t<F>>(forward<F>(f), invoke);
-}
-
-template <typename F>
-[[nodiscard]] scoped_action_with_bool<remove_cvref_t<F>>
-make_scoped_with_bool(F&& f, bool state) noexcept
-{
-	return scoped_action_with_bool<remove_cvref_t<F>>(forward<F>(f), state);
+	return final_action<remove_cvref_t<F>>(forward<F>(f), invoke);
 }
 
 /**
@@ -1235,7 +1419,7 @@ public:
 	 * @brief Get the active state of this guard.
 	 * @return `true` if an action has begun (but not ended), `false` otherwise.
 	 */
-	bool is_scope_active() const
+	bool is_scope_active() const noexcept
 	{
 		return m_func != nullptr;
 	}
@@ -1264,7 +1448,7 @@ public:
 	 * @brief Release the state for the caller's management, like `unique_ptr::release`
 	 * @return Function that must be called to free resources/reset state. May be null.
 	 */
-	[[nodiscard]] func_type* release()
+	NUKLEUS_NODISCARD func_type* release()
 	{
 		return exchange(m_func, nullptr);
 	}
@@ -1282,7 +1466,6 @@ protected:
 
 	void set_func(func_type* func)
 	{
-		NK_ASSERT(m_func == nullptr);
 		m_func = func;
 	}
 
@@ -1292,19 +1475,19 @@ private:
 };
 
 /**
- * @brief default scope guard, just calls the function in dtor
+ * @brief simplest scope guard (A), just calls the function in dtor, has no validity check
  */
-class scope_guard : public scope_guard_base<void (nk_context*)>
+class simple_scope_guard : public scope_guard_base<void (nk_context*)>
 {
 public:
 	// bring 2-argument ctor
 	using scope_guard_base::scope_guard_base;
 
 	// required because explicit destructor disables move (rule of 5)
-	scope_guard(const scope_guard&) = delete;
-	scope_guard(scope_guard&&) noexcept = default;
-	scope_guard& operator=(const scope_guard&) = delete;
-	scope_guard& operator=(scope_guard&&) noexcept = delete;
+	simple_scope_guard(const simple_scope_guard&) = delete;
+	simple_scope_guard(simple_scope_guard&&) noexcept = default;
+	simple_scope_guard& operator=(const simple_scope_guard&) = delete;
+	simple_scope_guard& operator=(simple_scope_guard&&) noexcept = delete;
 
 	/**
 	 * @brief Reset state of this guard. Will call end function if active.
@@ -1319,12 +1502,34 @@ public:
 		}
 	}
 
-	~scope_guard()
+	~simple_scope_guard()
 	{
 		reset();
 	}
 };
 
+/**
+ * @brief typical scope guard (B1, B2), calls the function in dtor, requires validity check
+ */
+class scope_guard : public simple_scope_guard
+{
+public:
+	using simple_scope_guard::simple_scope_guard;
+
+	explicit operator bool() && noexcept = delete;
+	/**
+	 * @brief Return whether this scope-widget should be processed.
+	 * @return `true` if visible and fillable with widgets, otherwise `false`.
+	 */
+	explicit operator bool() const & noexcept
+	{
+		return is_scope_active();
+	}
+};
+
+/**
+ * @brief scope guard for style overrides (B2+), has additional assertion for end call
+ */
 class scoped_override_guard : public scope_guard_base<nk_bool (nk_context*)>
 {
 public:
@@ -1342,7 +1547,8 @@ public:
 		reset();
 	}
 
-	explicit operator bool() const
+	explicit operator bool() && noexcept = delete;
+	explicit operator bool() const & noexcept
 	{
 		return is_scope_active();
 	}
@@ -1354,14 +1560,14 @@ public:
 		{
 			const nk_bool result = (*func)(&get_context());
 			set_func(nullptr);
-			NK_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
+			NUKLEUS_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
 		}
 	}
 };
 
-///@} // lifetime
+/// @} // lifetime
 
-///@} // basic
+/// @} // basic
 
 /**
  * @defgroup main Main Library
@@ -1444,7 +1650,11 @@ public:
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
-	static buffer init_default()
+	/**
+	 * @brief Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
+	 * @return buffer instance.
+	 */
+	NUKLEUS_NODISCARD static buffer init_default()
 	{
 		buffer buf;
 		nk_buffer_init_default(&buf.m_buffer);
@@ -1453,7 +1663,7 @@ public:
 	}
 #endif
 
-	static buffer init(const nk_allocator& alloc, nk_size size)
+	NUKLEUS_NODISCARD static buffer init(const nk_allocator& alloc, nk_size size)
 	{
 		buffer buf;
 		nk_buffer_init(&buf.m_buffer, &alloc, size);
@@ -1461,7 +1671,7 @@ public:
 		return buf;
 	}
 
-	static buffer init_fixed(void* memory, nk_size size)
+	NUKLEUS_NODISCARD static buffer init_fixed(void* memory, nk_size size)
 	{
 		buffer buf;
 		nk_buffer_init_fixed(&buf.m_buffer, memory, size);
@@ -1469,21 +1679,21 @@ public:
 		return buf;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Buffer Management
 	 * @{
 	 */
 
-	nk_memory_status info() // TODO const qualifier
+	nk_memory_status info() const
 	{
 		nk_memory_status status;
 		nk_buffer_info(&status, &m_buffer);
 		return status;
 	}
 
-	nk_size total() // TODO const qualifier
+	nk_size total() const
 	{
 		return nk_buffer_total(&m_buffer);
 	}
@@ -1508,7 +1718,7 @@ public:
 		nk_buffer_clear(&m_buffer);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Access
@@ -1518,10 +1728,10 @@ public:
 	      void* memory()       { return nk_buffer_memory(&m_buffer); }
 	const void* memory() const { return nk_buffer_memory_const(&m_buffer); }
 
-	      nk_buffer& get_buffer()       { return m_buffer; }
-	const nk_buffer& get_buffer() const { return m_buffer; }
+	      nk_buffer& get()       { return m_buffer; }
+	const nk_buffer& get() const { return m_buffer; }
 
-	///@}
+	/// @}
 
 private:
 	buffer() = default;
@@ -1531,11 +1741,11 @@ private:
 };
 
 /**
- * @brief wraps nk_str for convenience
+ * @brief wraps `nk_str` for convenience
  * @details Basic string buffer which is only used in context with the text editor
  * to manage and manipulate dynamic or fixed size string content. This is NOT
  * the default string handling method. The only instance you should have any contact
- * with this API is if you interact with an `nk_text_edit` object inside one of the
+ * with this API is if you interact with an @ref text_edit object inside one of the
  * copy and paste functions and even there only for more advanced cases.
  */
 class string_buffer
@@ -1579,7 +1789,11 @@ public:
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
-	static string_buffer init_default()
+	/**
+	 * @brief Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
+	 * @return string_buffer instance.
+	 */
+	NUKLEUS_NODISCARD static string_buffer init_default()
 	{
 		string_buffer str;
 		nk_str_init_default(&str.m_str);
@@ -1588,7 +1802,7 @@ public:
 	}
 #endif
 
-	static string_buffer init(const nk_allocator& alloc, nk_size size)
+	NUKLEUS_NODISCARD static string_buffer init(const nk_allocator& alloc, nk_size size)
 	{
 		string_buffer str;
 		nk_str_init(&str.m_str, &alloc, size);
@@ -1596,7 +1810,7 @@ public:
 		return str;
 	}
 
-	static string_buffer init_fixed(void* memory, nk_size size)
+	NUKLEUS_NODISCARD static string_buffer init_fixed(void* memory, nk_size size)
 	{
 		string_buffer str;
 		nk_str_init_fixed(&str.m_str, memory, size);
@@ -1604,7 +1818,7 @@ public:
 		return str;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Management
@@ -1636,7 +1850,7 @@ public:
 		return nk_str_append_str_utf8(&m_str, str);
 	}
 
-	int append_text_runes(struct nk_str*, const nk_rune* text, int len)
+	int append_text_runes(const nk_rune* text, int len)
 	{
 		return nk_str_append_text_runes(&m_str, text, len);
 	}
@@ -1681,7 +1895,7 @@ public:
 		return nk_str_insert_text_runes(&m_str, pos, text, len);
 	}
 
-	int insert_str_runes(struct nk_str*, int pos, const nk_rune* str)
+	int insert_str_runes(int pos, const nk_rune* str)
 	{
 		return nk_str_insert_str_runes(&m_str, pos, str);
 	}
@@ -1742,12 +1956,12 @@ public:
 		return nk_str_get_const(&m_str);
 	}
 
-	int len() // TODO const
+	int len() const
 	{
 		return nk_str_len(&m_str);
 	}
 
-	int len_char() // TODO const
+	int len_char() const
 	{
 		return nk_str_len_char(&m_str);
 	}
@@ -1755,7 +1969,7 @@ public:
 	      nk_str& get_str()       { return m_str; }
 	const nk_str& get_str() const { return m_str; }
 
-	///@}
+	/// @}
 
 private:
 	string_buffer() = default;
@@ -1765,7 +1979,7 @@ private:
 };
 
 /**
- * @brief Text Editor, wraps nk_text_edit for convenience
+ * @brief Text Editor, wraps `nk_text_edit` for convenience
  * @details Editing text in this library is handled by either @ref window::edit_string or
  * @ref window::edit_buffer. But like almost everything in this library there are multiple
  * ways of doing it and a balance between control and ease of use with memory
@@ -1788,7 +2002,8 @@ private:
  * complexity I would not recommend editing gigabytes of data with it.
  * It is rather designed for uses cases which make sense for a GUI library not for
  * a full blown text editor.
- * @attention You may want to define `NK_TEXTEDIT_UNDOSTATECOUNT` and
+ *
+ * @note You may want to define `NK_TEXTEDIT_UNDOSTATECOUNT` and
  * `NK_TEXTEDIT_UNDOCHARCOUNT` if default limits do not meet your needs.
  */
 class text_edit
@@ -1832,7 +2047,11 @@ public:
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
-	static text_edit init_default()
+	/**
+	 * @brief Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
+	 * @return text_edit instance.
+	 */
+	NUKLEUS_NODISCARD static text_edit init_default()
 	{
 		text_edit state;
 		nk_textedit_init_default(&state.m_state);
@@ -1841,7 +2060,7 @@ public:
 	}
 #endif
 
-	static text_edit init(const nk_allocator& alloc, nk_size size)
+	NUKLEUS_NODISCARD static text_edit init(const nk_allocator& alloc, nk_size size)
 	{
 		text_edit state;
 		nk_textedit_init(&state.m_state, &alloc, size);
@@ -1849,7 +2068,7 @@ public:
 		return state;
 	}
 
-	static text_edit init_fixed(void* memory, nk_size size)
+	NUKLEUS_NODISCARD static text_edit init_fixed(void* memory, nk_size size)
 	{
 		text_edit state;
 		nk_textedit_init_fixed(&state.m_state, memory, size);
@@ -1857,49 +2076,49 @@ public:
 		return state;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Filtering
 	 * @{
 	 */
 
-	[[nodiscard]] bool filter_default(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_default(nk_rune unicode) const
 	{
 		return nk_filter_default(&m_state, unicode) == nk_true;
 	}
 
-	[[nodiscard]] bool filter_ascii(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_ascii(nk_rune unicode) const
 	{
 		return nk_filter_ascii(&m_state, unicode) == nk_true;
 	}
 
-	[[nodiscard]] bool filter_float(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_float(nk_rune unicode) const
 	{
 		return nk_filter_float(&m_state, unicode) == nk_true;
 	}
 
-	[[nodiscard]] bool filter_decimal(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_decimal(nk_rune unicode) const
 	{
 		return nk_filter_decimal(&m_state, unicode) == nk_true;
 	}
 
-	[[nodiscard]] bool filter_hex(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_hex(nk_rune unicode) const
 	{
 		return nk_filter_hex(&m_state, unicode) == nk_true;
 	}
 
-	[[nodiscard]] bool filter_oct(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_oct(nk_rune unicode) const
 	{
 		return nk_filter_oct(&m_state, unicode) == nk_true;
 	}
 
-	[[nodiscard]] bool filter_binary(nk_rune unicode) const
+	NUKLEUS_NODISCARD bool filter_binary(nk_rune unicode) const
 	{
 		return nk_filter_binary(&m_state, unicode) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Editing
@@ -1926,12 +2145,12 @@ public:
 		nk_textedit_select_all(&m_state);
 	}
 
-	[[nodiscard]] bool cut()
+	NUKLEUS_NODISCARD bool cut()
 	{
 		return nk_textedit_cut(&m_state) == nk_true;
 	}
 
-	[[nodiscard]] bool paste(const char* text, int len)
+	NUKLEUS_NODISCARD bool paste(const char* text, int len)
 	{
 		return nk_textedit_paste(&m_state, text, len) == nk_true;
 	}
@@ -1949,7 +2168,7 @@ public:
 	      nk_text_edit& get_state()       { return m_state; }
 	const nk_text_edit& get_state() const { return m_state; }
 
-	///@}
+	/// @}
 
 private:
 	text_edit() = default;
@@ -1958,7 +2177,7 @@ private:
 	bool m_initialized = false;
 };
 
-///@} // buffers
+/// @} // buffers
 
 /**
  * @defgroup font_handling Font Handling
@@ -1968,6 +2187,8 @@ private:
  * 1. (simplest) your font handling scheme. Requires only essential data.
  * 2. Vertex buffer output. Requires only essential data + `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`.
  * 3. (most complex) Nuklear's font baking API. Requires `NK_INCLUDE_FONT_BAKING`.
+ *
+ * Additional details: https://github.com/Immediate-Mode-UI/Nuklear/wiki/Complete-font-guide
  *
  * ### (1) Using your own implementation without vertex buffer output
  *
@@ -2087,13 +2308,14 @@ private:
  * auto atlas = nk::font_atlas::init_default();
  *
  * atlas.begin();
- * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13);
+ * nk_font* font1 = atlas.add_from_file("Path/To/Your/TTF_Font1.ttf", 13);
  * nk_font* font2 = atlas.add_from_file("Path/To/Your/TTF_Font2.ttf", 16);
- * nk::v
- * const void* img = atlas.bake(&img_width, &img_height, NK_FONT_ATLAS_RGBA32);
- * atlas.end(nk_handle_id(texture), 0);
+ * nk::vec2<int> dimentions{};
+ * const void* img = atlas.bake(dimentions, NK_FONT_ATLAS_RGBA32);
+ * auto font_tex = upload_texture_to_gpu(image, dimentions);
+ * nk_draw_null_texture tex_null = atlas.end(nk_handle_id(font_tex));
  *
- * auto ctx = nk::context::init_default(font->handle);
+ * auto ctx = nk::context::init_default(font1->handle);
  * ```
  *
  * The font baker API is probably the most complex API inside this library and
@@ -2103,11 +2325,11 @@ private:
  * use another texture coordinate format and a lot more:
  *
  * ```cpp
- * struct nk_font_config cfg = nk_font_config(font_pixel_height);
- * cfg.merge_mode = nk_false or nk_true;
- * cfg.range = nk_font_korean_glyph_ranges();
- * cfg.coord_type = NK_COORD_PIXEL;
- * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13, &cfg);
+ * nk::font_config cfg(font_pixel_height);
+ * cfg.get().merge_mode = nk_true;
+ * cfg.get().range = nk_font_korean_glyph_ranges();
+ * cfg.get().coord_type = NK_COORD_PIXEL;
+ * nk_font* font = atlas.add_from_file("Path/To/Your/TTF_Font.ttf", 13, cfg);
  * ```
  *
  * @{
@@ -2135,8 +2357,8 @@ public:
 		m_config = nk_font_config(pixel_height);
 	}
 
-	      struct nk_font_config& get_config()       { return m_config; }
-	const struct nk_font_config& get_config() const { return m_config; }
+	      struct nk_font_config& get()       { return m_config; }
+	const struct nk_font_config& get() const { return m_config; }
 
 private:
 	struct nk_font_config m_config = {};
@@ -2192,7 +2414,7 @@ public:
 	 * @brief Create font atlas with standard library memory allocation. Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
 	 * @return Font atlas object.
 	 */
-	static font_atlas init_default()
+	NUKLEUS_NODISCARD static font_atlas init_default()
 	{
 		font_atlas atlas;
 		nk_font_atlas_init_default(&atlas.m_atlas);
@@ -2206,7 +2428,7 @@ public:
 	 * @param allocator The allocator to use.
 	 * @return Font atlas object.
 	 */
-	static font_atlas init(const nk_allocator& allocator)
+	NUKLEUS_NODISCARD static font_atlas init(const nk_allocator& allocator)
 	{
 		font_atlas atlas;
 		nk_font_atlas_init(&atlas.m_atlas, &allocator);
@@ -2220,7 +2442,7 @@ public:
 	 * @param transient The allocator to use for temporary storage (see @ref cleanup).
 	 * @return Font atlas object.
 	 */
-	static font_atlas init_custom(const nk_allocator& persistent, const nk_allocator& transient)
+	NUKLEUS_NODISCARD static font_atlas init_custom(const nk_allocator& persistent, const nk_allocator& transient)
 	{
 		font_atlas atlas;
 		nk_font_atlas_init_custom(&atlas.m_atlas, &persistent, &transient);
@@ -2228,7 +2450,7 @@ public:
 		return atlas;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Baking
@@ -2243,14 +2465,14 @@ public:
 		nk_font_atlas_begin(&m_atlas);
 	}
 
-	[[nodiscard]] nk_font* add(const struct nk_font_config& config) // TODO needs documentation
+	NUKLEUS_NODISCARD nk_font* add(const struct nk_font_config& config)
 	{
 		return nk_font_atlas_add(&m_atlas, &config); // (config can not be null here)
 	}
 
-	[[nodiscard]] nk_font* add(const font_config& config) // TODO needs documentation
+	NUKLEUS_NODISCARD nk_font* add(const font_config& config)
 	{
-		return add(config.get_config());
+		return add(config.get());
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_FONT
@@ -2260,7 +2482,7 @@ public:
 	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
 	 * @return Pointer to font object, managed by the atlas.
 	 */
-	[[nodiscard]] nk_font* add_default(float height, const struct nk_font_config* config = nullptr)
+	NUKLEUS_NODISCARD nk_font* add_default(float height, const struct nk_font_config* config = nullptr)
 	{
 		return nk_font_atlas_add_default(&m_atlas, height, config);
 	}
@@ -2268,9 +2490,9 @@ public:
 	/**
 	 * @copydoc add_default(float, const struct nk_font_config*)
 	 */
-	[[nodiscard]] nk_font* add_default(float height, const font_config& config)
+	NUKLEUS_NODISCARD nk_font* add_default(float height, const font_config& config)
 	{
-		return add_default(height, &config.get_config());
+		return add_default(height, &config.get());
 	}
 #endif
 
@@ -2282,7 +2504,7 @@ public:
 	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
 	 * @return Pointer to font object, managed by the atlas.
 	 */
-	[[nodiscard]] nk_font* add_from_memory(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
+	NUKLEUS_NODISCARD nk_font* add_from_memory(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
 	{
 		// const_cast is fine: the library never modifies the data (actually copies it) - API const issue?
 		return nk_font_atlas_add_from_memory(&m_atlas, const_cast<void*>(memory), size, height, config);
@@ -2291,9 +2513,9 @@ public:
 	/**
 	 * @copydoc add_from_memory(const void*, nk_size, float, const struct nk_font_config*)
 	 */
-	[[nodiscard]] nk_font* add_from_memory(const void* memory, nk_size size, float height, const font_config& config)
+	NUKLEUS_NODISCARD nk_font* add_from_memory(const void* memory, nk_size size, float height, const font_config& config)
 	{
-		return add_from_memory(memory, size, height, &config.get_config());
+		return add_from_memory(memory, size, height, &config.get());
 	}
 
 	/**
@@ -2304,7 +2526,7 @@ public:
 	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
 	 * @return Pointer to font object, managed by the atlas.
 	 */
-	[[nodiscard]] nk_font* add_compressed(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
+	NUKLEUS_NODISCARD nk_font* add_compressed(const void* memory, nk_size size, float height, const struct nk_font_config* config = nullptr)
 	{
 		// const_cast is fine: the library never modifies the data (actually copies it) - API const issue?
 		return nk_font_atlas_add_compressed(&m_atlas, const_cast<void*>(memory), size, height, config);
@@ -2313,9 +2535,9 @@ public:
 	/**
 	 * @copydoc add_compressed(const void*, nk_size, float, const struct nk_font_config*)
 	 */
-	[[nodiscard]] nk_font* add_compressed(const void* memory, nk_size size, float height, const font_config& config)
+	NUKLEUS_NODISCARD nk_font* add_compressed(const void* memory, nk_size size, float height, const font_config& config)
 	{
-		return add_compressed(memory, size, height, &config.get_config());
+		return add_compressed(memory, size, height, &config.get());
 	}
 
 	/**
@@ -2325,7 +2547,7 @@ public:
 	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
 	 * @return Pointer to font object, managed by the atlas.
 	 */
-	[[nodiscard]] nk_font* add_compressed_base85(const char* data, float height, const struct nk_font_config* config = nullptr)
+	NUKLEUS_NODISCARD nk_font* add_compressed_base85(const char* data, float height, const struct nk_font_config* config = nullptr)
 	{
 		return nk_font_atlas_add_compressed_base85(&m_atlas, data, height, config);
 	}
@@ -2333,9 +2555,9 @@ public:
 	/**
 	 * @copydoc add_compressed_base85(const char*, float, const struct nk_font_config*)
 	 */
-	[[nodiscard]] nk_font* add_compressed_base85(const char* data, float height, const font_config& config)
+	NUKLEUS_NODISCARD nk_font* add_compressed_base85(const char* data, float height, const font_config& config)
 	{
-		return add_compressed_base85(data, height, &config.get_config());
+		return add_compressed_base85(data, height, &config.get());
 	}
 
 #ifdef NK_INCLUDE_STANDARD_IO
@@ -2346,7 +2568,7 @@ public:
 	 * @param config Optional configuration. If null, @p height will be used to generate a default one.
 	 * @return Pointer to font object, managed by the atlas.
 	 */
-	[[nodiscard]] nk_font* add_from_file(const char* file_path, float height, const struct nk_font_config* config = nullptr)
+	NUKLEUS_NODISCARD nk_font* add_from_file(const char* file_path, float height, const struct nk_font_config* config = nullptr)
 	{
 		return nk_font_atlas_add_from_file(&m_atlas, file_path, height, config);
 	}
@@ -2354,9 +2576,9 @@ public:
 	/**
 	 * @copydoc add_from_file(const char*, float, const struct nk_font_config*)
 	 */
-	[[nodiscard]] nk_font* add_from_file(const char* file_path, float height, const font_config& config)
+	NUKLEUS_NODISCARD nk_font* add_from_file(const char* file_path, float height, const font_config& config)
 	{
-		return add_from_file(file_path, height, &config.get_config());
+		return add_from_file(file_path, height, &config.get());
 	}
 #endif
 
@@ -2367,14 +2589,16 @@ public:
 	 * @return Pointer to resulting image.
 	 * @attention This function must be called between @ref begin and @ref end.
 	 */
-	[[nodiscard]] const void* bake(vec2<int>& dimentions, nk_font_atlas_format fmt)
+	NUKLEUS_NODISCARD const void* bake(vec2<int>& dimentions, nk_font_atlas_format fmt)
 	{
 		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, fmt);
 	}
 
-	void end(nk_handle texture, struct nk_draw_null_texture* texture_null = nullptr) // TODO needs documentation
+	NUKLEUS_NODISCARD nk_draw_null_texture end(nk_handle texture)
 	{
-		nk_font_atlas_end(&m_atlas, texture, texture_null);
+		nk_draw_null_texture tex_null{};
+		nk_font_atlas_end(&m_atlas, texture, &tex_null);
+		return tex_null;
 	}
 
 	/**
@@ -2385,7 +2609,39 @@ public:
 		nk_font_atlas_cleanup(&m_atlas);
 	}
 
-	///@}
+	/// @}
+
+	/**
+	 * @name Access
+	 * @{
+	 */
+
+	      nk_font_atlas& get()       { return m_atlas; }
+	const nk_font_atlas& get() const { return m_atlas; }
+
+	nk_user_font* get_default_font()
+	{
+		if (!m_initialized)
+			return nullptr;
+
+		if (m_atlas.default_font == nullptr)
+			return nullptr;
+
+		return &m_atlas.default_font->handle;
+	}
+
+	const nk_user_font* get_default_font() const
+	{
+		if (!m_initialized)
+			return nullptr;
+
+		if (m_atlas.default_font == nullptr)
+			return nullptr;
+
+		return &m_atlas.default_font->handle;
+	}
+
+	/// @}
 
 private:
 	font_atlas() = default;
@@ -2396,20 +2652,21 @@ private:
 
 #endif // NK_INCLUDE_FONT_BAKING
 
-///@} // font_handling
+/// @} // font_handling
 
 /**
  * @defgroup core Core
  * @brief Context, Windows and Widgets.
  * @details The library's core are simple classes that wrap underlying begin/end calls.
  * In Nuklear, pretty much every function uses the `nk_context` struct.
- * In Nukleus, they have been grouped by usage patterns and lifetime requirements.
+ * In Nukleus, it's @ref context and @ref windows classes.
+ * Their functions have been grouped by usage patterns and lifetime requirements.
  * For example, you can not call a widget or layout function without first starting a window.
  * For this reason, Nukleus does not bundle all functions in the context class.
  * Instead, each class (including context) returns scope guard objects that give access to specific functions.
  * Each scope object manages the lifetime of a specific entity (context, window, layout, etc.).
- * First create a context object, then a window object from it and then you can create widgets and layout from
- * the window object.
+ * First create a context object, then a window object from it and then you can create
+ * individual widgets and layout from the window object.
  *
  * This design:
  * - Nicely groups related functions together.
@@ -2429,13 +2686,16 @@ private:
  *     - @ref popup
  *     - @ref chart
  *     - @ref canvas
+ *     - individual widgets in a single function like buttons, labels etc.
  *
  * Each class also gives an access to the underlying context object if you ever have a need to use Nuklear directly.
  *
- * @attention Normally you should not need to call constructors of any of these types except for context.
- * The constructors assume `nk_xxx_begin` was already called. Constructors are public for implementation reasons
- * and generally are not intended for public use.
- * After constructing a context object, you should create all descendant objects through dedicated functions.
+ * @attention Normally you should not need to call constructors of any of these types.
+ * The constructors assume `nk_xxx_begin` was already called.
+ * Constructors are public for implementation reasons; they are not intended for public use.
+ * Use context's static functions (named constructor idiom) to create it and then
+ * use context's public functions to create all descendant widget/layout etc. objects.
+ *
  * @{
  */
 
@@ -2448,27 +2708,32 @@ private:
  * expects more work from the user and complicates usage but on the other hand
  * provides simple abstraction over a big number of platforms, libraries and other
  * already provided functionality.
- * Input state needs to be provided to nuklear by first calling @ref context::scoped_input
+ * Input state needs to be provided to nuklear by first calling @ref context::input_scoped
  * which resets internal state like delta mouse position and button transitions.
  * After it, all current input state needs to be provided. This includes
  * mouse motion, button and key pressed and released, text input and scrolling.
  * Both event- or state-based input handling are supported by this API
- * and should work without problems. Finally after all input state has been mirrored
+ * and should work without problems. Finally after all input state has been provided
  * @ref event_input destructor calls internally `nk_input_end` to finish the input process.
  *
  * This class is named `event_input` to avoid confusing it with hypothetical `nk_input` struct wrapper.
  */
-class event_input : public scope_guard
+class event_input : public simple_scope_guard
 {
 public:
-	using scope_guard::scope_guard;
+	using simple_scope_guard::simple_scope_guard;
+
+	/**
+	 * @name Setters
+	 * @{
+	 */
 
 	/**
 	 * @brief Mirrors current mouse position to nuklear.
 	 * @param x current mouse cursor x-position
 	 * @param y current mouse cursor y-position
 	 */
-	void input_motion(int x, int y)
+	void motion(int x, int y)
 	{
 		nk_input_motion(&get_context(), x, y);
 	}
@@ -2478,7 +2743,7 @@ public:
 	 * @param key any value specified in enum nk_keys that needs to be mirrored
 	 * @param down false for key being up and true for key being down
 	 */
-	void input_key(nk_keys key, bool down)
+	void key(nk_keys key, bool down)
 	{
 		nk_input_key(&get_context(), key, down);
 	}
@@ -2490,7 +2755,7 @@ public:
 	 * @param y mouse cursor y-position on click up/down
 	 * @param down false for key being up and true for key being down
 	 */
-	void input_button(nk_buttons button, int x, int y, bool down)
+	void button(nk_buttons button, int x, int y, bool down)
 	{
 		nk_input_button(&get_context(), button, x, y, down);
 	}
@@ -2499,7 +2764,7 @@ public:
 	 * @brief Copies the last mouse scroll value to nuklear.
 	 * @param val vector with both X- as well as Y-scroll value
 	 */
-	void input_scroll(vec2<float> val)
+	void scroll(vec2<float> val)
 	{
 		nk_input_scroll(&get_context(), val);
 	}
@@ -2508,9 +2773,9 @@ public:
 	 * @brief Copies a single ASCII character into an internal text buffer.
 	 * This is basically a helper function to quickly push ASCII characters into nuklear.
 	 * @param c an ASCII character, preferably one that can be printed
-	 * @attention Stores up to NK_INPUT_MAX bytes between input_begin and input_end.
+	 * @attention Stores up to `NK_INPUT_MAX` bytes.
 	 */
-	void input_char(char c)
+	void char_(char c)
 	{
 		nk_input_char(&get_context(), c);
 	}
@@ -2519,9 +2784,9 @@ public:
 	 * @brief Converts an encoded unicode rune into UTF-8 and copies the result into an
 	 * internal text buffer.
 	 * @param g UTF-32 unicode codepoint
-	 * @attention Stores up to NK_INPUT_MAX bytes between input_begin and input_end.
+	 * @attention Stores up to `NK_INPUT_MAX` bytes.
 	 */
-	void input_glyph(const nk_glyph g)
+	void glyph(nk_glyph g)
 	{
 		nk_input_glyph(&get_context(), g);
 	}
@@ -2530,12 +2795,104 @@ public:
 	 * @brief Converts a unicode rune into UTF-8 and copies the result
 	 * into an internal text buffer.
 	 * @param rune UTF-32 unicode codepoint
-	 * @attention Stores up to NK_INPUT_MAX bytes between input_begin and input_end.
+	 * @attention Stores up to `NK_INPUT_MAX` bytes.
 	 */
-	void input_unicode(nk_rune rune)
+	void unicode(nk_rune rune)
 	{
 		nk_input_unicode(&get_context(), rune);
 	}
+
+	/// @}
+
+	/**
+	 * @name Getters
+	 * @{
+	 */
+
+	bool has_mouse_click(nk_buttons id) const
+	{
+		return nk_input_has_mouse_click(&get(), id) == nk_true;
+	}
+
+	bool has_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_has_mouse_click_in_rect(&get(), id, bounds) == nk_true;
+	}
+
+	bool has_mouse_click_in_button_rect(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_has_mouse_click_in_button_rect(&get(), id, bounds) == nk_true;
+	}
+
+	bool has_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
+	{
+		return nk_input_has_mouse_click_down_in_rect(&get(), id, bounds, down) == nk_true;
+	}
+
+	bool is_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_is_mouse_click_in_rect(&get(), id, bounds) == nk_true;
+	}
+
+	bool is_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
+	{
+		return nk_input_is_mouse_click_down_in_rect(&get(), id, bounds, down) == nk_true;
+	}
+
+	bool any_mouse_click_in_rect(rect<float> bounds) const
+	{
+		return nk_input_any_mouse_click_in_rect(&get(), bounds) == nk_true;
+	}
+
+	bool is_mouse_prev_hovering_rect(rect<float> bounds) const
+	{
+		return nk_input_is_mouse_prev_hovering_rect(&get(), bounds) == nk_true;
+	}
+
+	bool is_mouse_hovering_rect(rect<float> bounds) const
+	{
+		return nk_input_is_mouse_hovering_rect(&get(), bounds) == nk_true;
+	}
+
+	bool mouse_clicked(nk_buttons id, rect<float> bounds) const
+	{
+		return nk_input_mouse_clicked(&get(), id, bounds) == nk_true;
+	}
+
+	bool is_mouse_down(nk_buttons id) const
+	{
+		return nk_input_is_mouse_down(&get(), id) == nk_true;
+	}
+
+	bool is_mouse_pressed(nk_buttons id) const
+	{
+		return nk_input_is_mouse_pressed(&get(), id) == nk_true;
+	}
+
+	bool is_mouse_released(nk_buttons id) const
+	{
+		return nk_input_is_mouse_released(&get(), id) == nk_true;
+	}
+
+	bool is_key_pressed(nk_keys key) const
+	{
+		return nk_input_is_key_pressed(&get(), key) == nk_true;
+	}
+
+	bool is_key_released(nk_keys key) const
+	{
+		return nk_input_is_key_released(&get(), key) == nk_true;
+	}
+
+	bool is_key_down(nk_keys key) const
+	{
+		return nk_input_is_key_down(&get(), key) == nk_true;
+	}
+
+	      nk_input& get()       { return get_context().input; }
+	const nk_input& get() const { return get_context().input; }
+
+	/// @}
 };
 
 /**
@@ -2543,7 +2900,7 @@ public:
  * @details Groups are basically windows inside windows. They allow to subdivide
  * space in a window to layout widgets as a group. Almost all more complex widget
  * layouting requirements can be solved using groups and basic layouting
- * fuctionality. Groups just like windows are identified by an unique name and
+ * functionality. Groups just like windows are identified by a unique name and
  * internally keep track of scrollbar offsets by default. However additional
  * versions are provided to directly manage the scrollbar.
  *
@@ -2555,36 +2912,23 @@ class group : public scope_guard
 public:
 	using scope_guard::scope_guard;
 
-	// group(group&&) noexcept = default; // XXX
-
 	/**
 	 * @name Group creation
 	 * @{
 	 */
 
 	/**
-	 * @copydoc layout::blank_group
+	 * @copydoc layout::group_blank
 	 */
-	[[nodiscard]] group blank_subgroup()
+	NUKLEUS_NODISCARD group subgroup_blank()
 	{
 		return group(get_context(), nullptr);
 	}
 
 	/**
-	 * @brief Return whether this scope-widget should be processed.
-	 * @return `true` if visible and fillable with widgets, otherwise `false`.
-	 * @details Some scope widgets, unlike windows, need `nk_xxx_end` to be only called if the corresponding
-	 * `nk_xxx_begin_xxx` call returns nk_true. Thus, the implementation here differs from the window class.
+	 * @copydoc layout::group_scoped
 	 */
-	explicit operator bool() const &
-	{
-		return is_scope_active();
-	}
-
-	/**
-	 * @copydoc layout::scoped_group
-	 */
-	[[nodiscard]] group scoped_subgroup(const char* title, nk_flags flags) &
+	NUKLEUS_NODISCARD group subgroup_scoped(const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2592,9 +2936,9 @@ public:
 	}
 
 	/**
-	 * @copydoc layout::scoped_group_titled
+	 * @copydoc layout::group_titled_scoped
 	 */
-	[[nodiscard]] group scoped_subgroup_titled(const char* name, const char* title, nk_flags flags) &
+	NUKLEUS_NODISCARD group subgroup_titled_scoped(const char* name, const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2602,9 +2946,9 @@ public:
 	}
 
 	/**
-	 * @copydoc layout::scoped_group_scrolled_offset
+	 * @copydoc layout::group_scrolled_offset_scoped
 	 */
-	[[nodiscard]] group scoped_subgroup_scrolled_offset(nk_uint& x_offset, nk_uint& y_offset, const char* title, nk_flags flags) &
+	NUKLEUS_NODISCARD group subgroup_scrolled_offset_scoped(uint& x_offset, uint& y_offset, const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2614,9 +2958,9 @@ public:
 	}
 
 	/**
-	 * @copydoc layout::scoped_group_scrolled
+	 * @copydoc layout::group_scrolled_scoped
 	 */
-	[[nodiscard]] group scoped_subgroup_scrolled(nk_scroll& off, const char* title, nk_flags flags) &
+	NUKLEUS_NODISCARD group subgroup_scrolled_scoped(nk_scroll& off, const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2625,51 +2969,17 @@ public:
 			) == nk_true ? &nk_group_scrolled_end : nullptr);
 	}
 
-	///@}
+	/// @}
 };
 
 /**
  * @brief Base class for layouts. Specific layouts (derived types) offer additional functions.
- * @details Example use:
- *     // first row with height: 25 composed of two widgets with width 60 and 40
- *     auto layout = ctx.scoped_layout_row(NK_STATIC, 25, 2);
- *     ctx.layout_row_push(60);
- *     ctx.widget(...);
- *     ctx.layout_row_push(40);
- *     ctx.widget(...);
- *
- *     // second row with height: 25 composed of two widgets with window ratio 0.25 and 0.75
- *     layout.scoped_layout_row(NK_DYNAMIC, 25, 2);
- *     ctx.layout_row_push(0.25f);
- *     ctx.widget(...);
- *     ctx.layout_row_push(0.75f);
- *     ctx.widget(...);
- *
- *     // third row with auto generated height: composed of two widgets with window ratio 0.25 and 0.75
- *     layout.scoped_layout_row(NK_DYNAMIC, 0, 2);
- *     ctx.layout_row_push(0.25f);
- *     ctx.widget(...);
- *     ctx.layout_row_push(0.75f);
- *     ctx.widget(...);
- *
- *     // static row with height: 500 (you can set column count to INT_MAX if you don't want to be bothered)
- *     layout.scoped_layout_space(ctx, NK_STATIC, 500, INT_MAX);
- *     ctx.layout_space_push(ctx, nk_rect(0, 0, 150, 200));
- *     ctx.widget(...);
- *     ctx.layout_space_push(ctx, nk_rect(200, 200, 100, 200));
- *     ctx.widget(...);
- *
- *     // dynamic row with height: 500 (you can set column count to INT_MAX if you don't want to be bothered)
- *     layout.scoped_layout_space(ctx, NK_DYNAMIC, 500, INT_MAX);
- *     ctx.layout_space_push(ctx, nk_rect(0.5, 0.5, 0.1, 0.1));
- *     ctx.widget(...);
- *     ctx.layout_space_push(ctx, nk_rect(0.7, 0.6, 0.1, 0.1));
- *     ctx.widget(...);
+ * @details See @ref window layout documentation for description and examples
  */
-class layout : public scope_guard
+class layout : public simple_scope_guard
 {
 public:
-	using scope_guard::scope_guard;
+	using simple_scope_guard::simple_scope_guard;
 
 	/**
 	 * @name Group API
@@ -2682,7 +2992,7 @@ public:
 	 * @return A group guard that does not manage a group.
 	 * @details Normally you should not need to use this function.
 	 */
-	group blank_group()
+	group group_blank()
 	{
 		return group(get_context(), nullptr);
 	}
@@ -2693,7 +3003,7 @@ public:
 	 * @param flags Window flags defined in the nk_panel_flags section with a number of different group behaviors.
 	 * @return scope guard that should be immediately checked
 	 */
-	group scoped_group(const char* title, nk_flags flags) &
+	group group_scoped(const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2701,13 +3011,13 @@ public:
 	}
 
 	/**
-	 * @copybrief layout::scoped_group
+	 * @copybrief layout::group_scoped
 	 * @param name Unique identifier for this group.
 	 * @param title Group header title.
 	 * @param flags Window flags defined in the nk_panel_flags section with a number of different group behaviors.
 	 * @return scope guard that should be immediately checked
 	 */
-	group scoped_group_titled(const char* name, const char* title, nk_flags flags) &
+	group group_titled_scoped(const char* name, const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2716,14 +3026,14 @@ public:
 
 	/**
 	 * @brief Start a new widget group. Requires a previous layouting function to specify
-	 * a size. Does not keep track of scrollbar. TODO lifetime requirements? Scrollbar externally?
+	 * a size. Does not keep track of scrollbar.
 	 * @param x_offset Scrollbar x-offset to offset all widgets inside the group horizontally.
 	 * @param y_offset Scrollbar y-offset to offset all widgets inside the group vertically.
 	 * @param title Unique group title used to both identify and display in the group header.
 	 * @param flags Window flags from the nk_panel_flags section
 	 * @return scope guard that should be immediately checked
 	 */
-	group scoped_group_scrolled_offset(nk_uint& x_offset, nk_uint& y_offset, const char* title, nk_flags flags) &
+	group group_scrolled_offset_scoped(uint& x_offset, uint& y_offset, const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2740,7 +3050,7 @@ public:
 	 * @param flags Window flags from the nk_panel_flags section
 	 * @return scope guard that should be immediately checked
 	 */
-	group scoped_group_scrolled(nk_scroll& off, const char* title, nk_flags flags) &
+	group group_scrolled_scoped(nk_scroll& off, const char* title, nk_flags flags) &
 	{
 		return group(
 			get_context(),
@@ -2749,7 +3059,7 @@ public:
 			) == nk_true ? &nk_group_scrolled_end : nullptr);
 	}
 
-	///@}
+	/// @}
 };
 
 class layout_row : public layout
@@ -2761,9 +3071,9 @@ public:
 
 	/**
 	 * @brief Specifies either window ratio or width of a single column.
-	 * @param value Either a window ratio or fixed width depending on `fmt` in previous scoped_row call.
+	 * @param value Either a window ratio or fixed width depending on `fmt` in previous row_scoped call.
 	 */
-	void row_push(float value) &
+	void push(float value) &
 	{
 		nk_layout_row_push(&get_context(), value);
 	}
@@ -2823,7 +3133,7 @@ public:
 	 * @brief Utility function to calculate total space allocated for `nk_layout_space`.
 	 * @return Total space allocated.
 	 */
-	[[nodiscard]] rect<float> bounds()
+	NUKLEUS_NODISCARD rect<float> bounds() const
 	{
 		return nk_layout_space_bounds(&get_context());
 	}
@@ -2833,7 +3143,7 @@ public:
 	 * @param vec Position to convert from layout space into screen coordinate space.
 	 * @return Screen space coordinates.
 	 */
-	[[nodiscard]] vec2<float> space_to_screen(vec2<float> vec)
+	NUKLEUS_NODISCARD vec2<float> to_screen(vec2<float> vec) const
 	{
 		return nk_layout_space_to_screen(&get_context(), vec);
 	}
@@ -2843,7 +3153,7 @@ public:
 	 * @param vec Position to convert from screen space into layout coordinate space.
 	 * @return Layout space coordinates.
 	 */
-	[[nodiscard]] vec2<float> space_to_local(vec2<float> vec)
+	NUKLEUS_NODISCARD vec2<float> to_local(vec2<float> vec) const
 	{
 		return nk_layout_space_to_local(&get_context(), vec);
 	}
@@ -2853,7 +3163,7 @@ public:
 	 * @param bounds Rectangle to convert from layout space into screen space.
 	 * @return Screen space coordinates.
 	 */
-	[[nodiscard]] rect<float> space_rect_to_screen(rect<float> bounds)
+	NUKLEUS_NODISCARD rect<float> rect_to_screen(rect<float> bounds) const
 	{
 		return nk_layout_space_rect_to_screen(&get_context(), bounds);
 	}
@@ -2863,7 +3173,7 @@ public:
 	 * @param bounds Rectangle to convert from screen space into layout space.
 	 * @return Layout space coordinates.
 	 */
-	[[nodiscard]] rect<float> space_rect_to_local(rect<float> bounds)
+	NUKLEUS_NODISCARD rect<float> rect_to_local(rect<float> bounds) const
 	{
 		return nk_layout_space_rect_to_local(&get_context(), bounds);
 	}
@@ -2877,19 +3187,8 @@ public:
 	}
 };
 
-/**
- * @brief tree widget scope guard
- */
-class tree : public scope_guard
-{
-public:
-	using scope_guard::scope_guard;
-
-	explicit operator bool() const &
-	{
-		return is_scope_active();
-	}
-};
+// An alias in case tree gets some functions in the future
+using tree = scope_guard;
 
 /**
  * @brief UNDOCUMENTED
@@ -2909,23 +3208,14 @@ public:
 		nk_chart_add_slot_colored(&get_context(), type, col, highlight, count, min_value, max_value);
 	}
 
-	[[nodiscard]] nk_flags push(float value)
+	NUKLEUS_NODISCARD nk_flags push(float value)
 	{
 		return nk_chart_push(&get_context(), value);
 	}
 
-	[[nodiscard]] nk_flags push_slot(float value, int slot)
+	NUKLEUS_NODISCARD nk_flags push_slot(float value, int slot)
 	{
 		return nk_chart_push_slot(&get_context(), value, slot);
-	}
-
-	/**
-	 * @brief Return whether this chart should be processed.
-	 * @return `true` if visible and fillable with widgets, otherwise `false`.
-	 */
-	explicit operator bool() const &
-	{
-		return is_scope_active();
 	}
 };
 
@@ -2934,22 +3224,22 @@ class popup : public scope_guard
 public:
 	using scope_guard::scope_guard;
 
-	explicit operator bool() const &
-	{
-		return is_scope_active();
-	}
-
 	void close()
 	{
 		nk_popup_close(&get_context());
 	}
 
-	void get_scroll(nk_uint* offset_x, nk_uint* offset_y)
+	/**
+	 * @brief get scroll offsets
+	 * @param offset_x (optional) variable to save X offset to
+	 * @param offset_y (optional) variable to save Y offset to
+	 */
+	void get_scroll(nk_uint* offset_x, nk_uint* offset_y) const
 	{
 		nk_popup_get_scroll(&get_context(), offset_x, offset_y);
 	}
 
-	[[nodiscard]] vec2<nk_uint> get_scroll()
+	NUKLEUS_NODISCARD vec2<nk_uint> get_scroll() const
 	{
 		vec2<nk_uint> result;
 		nk_popup_get_scroll(&get_context(), &result.x, &result.y);
@@ -2960,6 +3250,11 @@ public:
 	{
 		nk_popup_set_scroll(&get_context(), offset_x, offset_y);
 	}
+
+	void set_scroll(vec2<nk_uint> offsets)
+	{
+		set_scroll(offsets.x, offsets.y);
+	}
 };
 
 class combobox : public scope_guard
@@ -2967,37 +3262,32 @@ class combobox : public scope_guard
 public:
 	using scope_guard::scope_guard;
 
-	explicit operator bool() const &
-	{
-		return is_scope_active();
-	}
-
-	[[nodiscard]] bool combo_item_label(const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_label(const char* label, nk_flags alignment)
 	{
 		return nk_combo_item_label(&get_context(), label, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool combo_item_text(const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_text(const char* text, int len, nk_flags alignment)
 	{
 		return nk_combo_item_text(&get_context(), text, len, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool combo_item_image_label(image img, const char* text, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_label(image img, const char* text, nk_flags alignment)
 	{
 		return nk_combo_item_image_label(&get_context(), img, text, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool combo_item_image_text(image img, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_text(image img, const char* text, int len, nk_flags alignment)
 	{
 		return nk_combo_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool combo_item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
 	{
 		return nk_combo_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
 	{
 		return nk_combo_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
 	}
@@ -3016,37 +3306,32 @@ class contextual : public scope_guard
 public:
 	using scope_guard::scope_guard;
 
-	explicit operator bool() const &
-	{
-		return is_scope_active();
-	}
-
-	[[nodiscard]] bool item_text(const char* text, int len, nk_flags align)
+	NUKLEUS_NODISCARD bool item_text(const char* text, int len, nk_flags align)
 	{
 		return nk_contextual_item_text(&get_context(), text, len, align) == nk_true;
 	}
 
-	[[nodiscard]] bool item_label(const char* label, nk_flags align)
+	NUKLEUS_NODISCARD bool item_label(const char* label, nk_flags align)
 	{
 		return nk_contextual_item_label(&get_context(), label, align) == nk_true;
 	}
 
-	[[nodiscard]] bool item_image_label(nk::image img, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_label(nk::image img, const char* label, nk_flags alignment)
 	{
 		return nk_contextual_item_image_label(&get_context(), img, label, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
 	{
 		return nk_contextual_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
 	{
 		return nk_contextual_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
 	{
 		return nk_contextual_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
 	}
@@ -3065,37 +3350,32 @@ class menu : public scope_guard
 public:
 	using scope_guard::scope_guard;
 
-	explicit operator bool() const &
-	{
-		return is_scope_active();
-	}
-
-	[[nodiscard]] bool item_text(const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_text(const char* text, int len, nk_flags alignment)
 	{
 		return nk_menu_item_text(&get_context(), text, len, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_label(const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_label(const char* label, nk_flags alignment)
 	{
 		return nk_menu_item_label(&get_context(), label, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_image_label(nk::image img, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_label(nk::image img, const char* label, nk_flags alignment)
 	{
 		return nk_menu_item_image_label(&get_context(), img, label, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
 	{
 		return nk_menu_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
 	{
 		return nk_menu_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
 	{
 		return nk_menu_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
 	}
@@ -3137,7 +3417,7 @@ public:
  *     canvas.fill_rect(space, 0, nk::color(255, 0, 0));
  * }
  *
- * if (auto window = ctx.scoped_xxx(...); window) {
+ * if (auto window = ctx.xxx_scoped(...); window) {
  *     window.row_dynamic(25, 1);
  *     draw_red_rectangle_widget(window);
  * }
@@ -3191,17 +3471,17 @@ public:
 		nk_stroke_triangle(m_cmd_buf, x0, y0, x1, y1, x2, y2, line_thickness, c);
 	}
 
-	void stroke_polyline(float* points, int point_count, float line_thickness, color c) // TODO const pointer
+	void stroke_polyline(const float* points, int point_count, float line_thickness, color c)
 	{
 		nk_stroke_polyline(m_cmd_buf, points, point_count, line_thickness, c);
 	}
 
-	void stroke_polygon(float* points, int point_count, float line_thickness, color c) // TODO const pointer
+	void stroke_polygon(const float* points, int point_count, float line_thickness, color c)
 	{
 		nk_stroke_polygon(m_cmd_buf, points, point_count, line_thickness, c);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Filled Shapes
@@ -3233,12 +3513,12 @@ public:
 		nk_fill_triangle(m_cmd_buf, x0, y0, x1, y1, x2, y2, c);
 	}
 
-	void fill_polygon(float* points, int point_count, color c) // TODO const pointer
+	void fill_polygon(const float* points, int point_count, color c)
 	{
 		nk_fill_polygon(m_cmd_buf, points, point_count, c);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Other
@@ -3265,13 +3545,13 @@ public:
 		nk_push_scissor(m_cmd_buf, r);
 	}
 
-	// TODO better function abstraction and also why cb takes `void* canvas` (why void)?
+	// Can not provide better abstraction here - the callback is not used immediately
 	void push_custom(rect<float> r, nk_command_custom_callback cb, nk_handle usr)
 	{
 		nk_push_custom(m_cmd_buf, r, cb, usr);
 	}
 
-	///@}
+	/// @}
 
 private:
 	nk_command_buffer* m_cmd_buf;
@@ -3290,14 +3570,15 @@ private:
  * is linked into a window stack list which determines the drawing and overlapping
  * order. The topmost window thereby is the currently active window.
  *
- * To change window position inside the stack occurs either automatically by
- * user input by being clicked on or programmatically by calling `nk_window_focus`.
+ * To change window position inside the stack occurs either automatically by user input
+ * by being clicked on or programmatically by calling @ref window::window_set_focus.
  * Windows by default are visible unless explicitly being defined with flag
  * `NK_WINDOW_HIDDEN`, the user clicked the close button on windows with flag
  * `NK_WINDOW_CLOSABLE` or if a window was explicitly hidden by calling
  * `nk_window_show`. To explicitly close and destroy a window call `nk_window_close`.
  *
- * *Usage:*
+ * **Usage:**
+ *
  * To create and keep a window you have to call one of the two `nk_begin_xxx`
  * functions to start window declarations and `nk_end` at the end. Furthermore it
  * is recommended to check the return value of `nk_begin_xxx` and only process
@@ -3306,27 +3587,27 @@ private:
  * nest `nk_begin_xxx` calls which will hopefully result in an assert or if not
  * in a segmentation fault.
  */
-class window : public scope_guard
+class window : public simple_scope_guard
 {
 private:
 	window(nk_context& ctx, func_type* func, bool valid)
-	: scope_guard(ctx, func)
+	: simple_scope_guard(ctx, func)
 	, m_valid(valid)
 	{}
 
 public:
-	static window create(nk_context& ctx, bool valid)
+	NUKLEUS_NODISCARD static window create(nk_context& ctx, bool valid)
 	{
 		return window(ctx, &nk_end, valid);
 	}
 
-	static window create_blank(nk_context& ctx)
+	NUKLEUS_NODISCARD static window create_blank(nk_context& ctx)
 	{
 		return window(ctx, nullptr, false);
 	}
 
 	window(window&& other) noexcept
-	: scope_guard(move(other))
+	: simple_scope_guard(move(other))
 	, m_valid(exchange(other.m_valid, false))
 	{}
 
@@ -3334,6 +3615,7 @@ public:
 	window& operator=(const window&) = delete;
 	window& operator=(window&&) noexcept = delete;
 
+	explicit operator bool() && noexcept = delete;
 	/**
 	 * @brief Return whether this window should be processed.
 	 * @return `true` if `nk_begin_xxx` returned `true` and this object manages window lifetime.
@@ -3341,7 +3623,7 @@ public:
 	 * A window always needs an end call (`nk_end`) but if `begin` returned `false`
 	 * then the window should not be processed.
 	 */
-	explicit operator bool() const noexcept
+	explicit operator bool() const & noexcept
 	{
 		return m_valid && is_scope_active();
 	}
@@ -3358,7 +3640,7 @@ public:
 	 * @param name Window identifier.
 	 * @return Window pointer or null pointer.
 	 */
-	[[nodiscard]] nk_window* window_find(const char* name)
+	NUKLEUS_NODISCARD nk_window* window_find(const char* name) const
 	{
 		return nk_window_find(&get_context(), name);
 	}
@@ -3368,7 +3650,7 @@ public:
 	 * @param name Window identifier.
 	 * @return `true` if the window is minimized and `false` if not minimized or not found.
 	 */
-	[[nodiscard]] bool window_is_collapsed(const char* name)
+	NUKLEUS_NODISCARD bool window_is_collapsed(const char* name) const
 	{
 		return nk_window_is_collapsed(&get_context(), name) == nk_true;
 	}
@@ -3378,7 +3660,7 @@ public:
 	 * @param name Window identifier.
 	 * @return `true` if the window was closed and `false` if not closed or not found.
 	 */
-	[[nodiscard]] bool window_is_closed(const char* name)
+	NUKLEUS_NODISCARD bool window_is_closed(const char* name) const
 	{
 		return nk_window_is_closed(&get_context(), name) == nk_true;
 	}
@@ -3388,7 +3670,7 @@ public:
 	 * @param name Window identifier.
 	 * @return `true` if the window is hidden and `false` if not hidden or not found.
 	 */
-	[[nodiscard]] bool window_is_hidden(const char* name)
+	NUKLEUS_NODISCARD bool window_is_hidden(const char* name) const
 	{
 		return nk_window_is_hidden(&get_context(), name) == nk_true;
 	}
@@ -3398,7 +3680,7 @@ public:
 	 * @param name Window identifier.
 	 * @return `true` if the window is active and `false` if not active or not found.
 	 */
-	[[nodiscard]] bool window_is_active(const char* name)
+	NUKLEUS_NODISCARD bool window_is_active(const char* name) const
 	{
 		return nk_window_is_active(&get_context(), name) == nk_true;
 	}
@@ -3407,7 +3689,7 @@ public:
 	 * @brief Return whether any window is being hovered.
 	 * @return `true` if any window is hovered or `false` otherwise.
 	 */
-	[[nodiscard]] bool window_is_any_hovered()
+	NUKLEUS_NODISCARD bool window_is_any_hovered() const
 	{
 		return nk_window_is_any_hovered(&get_context()) == nk_true;
 	}
@@ -3418,7 +3700,7 @@ public:
 	 * Example could be UI and 3D camera to move inside a 3D space.
 	 * @return `true` if any window is active or `false` otherwise.
 	 */
-	[[nodiscard]] bool item_is_any_active()
+	NUKLEUS_NODISCARD bool item_is_any_active() const
 	{
 		return nk_item_is_any_active(&get_context()) == nk_true;
 	}
@@ -3513,7 +3795,7 @@ public:
 		nk_window_show_if(&get_context(), name, state, cond);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Local window functions
@@ -3526,9 +3808,9 @@ public:
 	 * @brief Return a rectangle with screen position and size of the currently processed window.
 	 * @return Window upper left window position and size.
 	 */
-	[[nodiscard]] rect<float> get_bounds() const
+	NUKLEUS_NODISCARD rect<float> get_bounds() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_bounds(&get_context());
 	}
 
@@ -3536,9 +3818,9 @@ public:
 	 * @brief Return the position of the currently processed window.
 	 * @return Window upper left position.
 	 */
-	[[nodiscard]] vec2<float> get_position() const
+	NUKLEUS_NODISCARD vec2<float> get_position() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_position(&get_context());
 	}
 
@@ -3546,9 +3828,9 @@ public:
 	 * @brief Return the size with width and height of the currently processed window.
 	 * @return Window width and height.
 	 */
-	[[nodiscard]] vec2<float> get_size() const
+	NUKLEUS_NODISCARD vec2<float> get_size() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_size(&get_context());
 	}
 
@@ -3556,9 +3838,9 @@ public:
 	 * @brief Return the width of the currently processed window.
 	 * @return Current window width.
 	 */
-	[[nodiscard]] float get_width() const
+	NUKLEUS_NODISCARD float get_width() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_width(&get_context());
 	}
 
@@ -3566,30 +3848,41 @@ public:
 	 * @brief Return the height of the currently processed window.
 	 * @return Current window height.
 	 */
-	[[nodiscard]] float get_height() const
+	NUKLEUS_NODISCARD float get_height() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_height(&get_context());
 	}
 
 	/**
 	 * @brief Return the underlying panel which contains all processing state of the current window.
 	 * @return Pointer to window internal `nk_panel` state.
-	 * @attention Do not keep the returned pointer around, it is only valid until end of window's scope.
+	 * @attention Do not keep the returned object around, it is only valid until end of window's scope.
 	 */
-	[[nodiscard]] nk_panel* get_panel() &
+	NUKLEUS_NODISCARD nk_panel& get_panel() &
 	{
-		NK_ASSERT(m_valid);
-		return nk_window_get_panel(&get_context());
+		NUKLEUS_ASSERT(m_valid);
+		// takes const nk_context* but returns non-const nk_panel*
+		// This looks like an attempt to supply both const and non-const "overloads"
+		return *nk_window_get_panel(&get_context());
+	}
+
+	/**
+	 * @copydoc get_panel() &
+	 */
+	NUKLEUS_NODISCARD const nk_panel& get_panel() const &
+	{
+		NUKLEUS_ASSERT(m_valid);
+		return *nk_window_get_panel(&get_context());
 	}
 
 	/**
 	 * @brief Return the position and size of the currently visible and non-clipped space inside the currently processed window.
 	 * @return Screen position and size (no scrollbar offset) of the visible space inside the current window.
 	 */
-	[[nodiscard]] rect<float> get_content_region()
+	NUKLEUS_NODISCARD rect<float> get_content_region() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_content_region(&get_context());
 	}
 
@@ -3597,9 +3890,9 @@ public:
 	 * @brief Return the upper left position of the currently visible and non-clipped space inside the currently processed window.
 	 * @return Upper left screen position (no scrollbar offset) of the visible space inside the current window.
 	 */
-	[[nodiscard]] vec2<float> get_content_region_min()
+	NUKLEUS_NODISCARD vec2<float> get_content_region_min() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_content_region_min(&get_context());
 	}
 
@@ -3607,9 +3900,9 @@ public:
 	 * @brief Returns the lower right screen position of the currently visible and non-clipped space inside the currently processed window.
 	 * @return Lower right screen position (no scrollbar offset) of the visible space inside the current window
 	 */
-	[[nodiscard]] vec2<float> get_content_region_max()
+	NUKLEUS_NODISCARD vec2<float> get_content_region_max() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_content_region_max(&get_context());
 	}
 
@@ -3617,20 +3910,20 @@ public:
 	 * @brief Return the size of the currently visible and non-clipped space inside the currently processed window.
 	 * @return Size of the visible space inside the current window.
 	 */
-	[[nodiscard]] vec2<float> get_content_region_size()
+	NUKLEUS_NODISCARD vec2<float> get_content_region_size() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_get_content_region_size(&get_context());
 	}
 
 	/**
 	 * @brief Return window's canvas, which can be used to draw custom widgets.
 	 * @return Canvas object made from pointer to window's internal `nk_command_buffer`.
-	 * @attention Do not keep the returned object around, it is only valid until end of window's scope.
+	 * @attention Do not keep the returned object between frames, it is only valid until end of window's scope.
 	 */
-	[[nodiscard]] canvas get_canvas() &
+	NUKLEUS_NODISCARD canvas get_canvas() &
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return *nk_window_get_canvas(&get_context());
 	}
 
@@ -3639,9 +3932,9 @@ public:
 	 * @param offset_x x offset output (use nullptr to ignore)
 	 * @param offset_y y offset output (use nullptr to ignore)
 	 */
-	void get_scroll(nk_uint* offset_x, nk_uint* offset_y)
+	void get_scroll(nk_uint* offset_x, nk_uint* offset_y) const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		nk_window_get_scroll(&get_context(), offset_x, offset_y);
 	}
 
@@ -3649,9 +3942,9 @@ public:
 	 * @brief Get the scroll offset for the current window.
 	 * @return Scroll offset for the current window.
 	 */
-	[[nodiscard]] vec2<nk_uint> get_scroll()
+	NUKLEUS_NODISCARD vec2<nk_uint> get_scroll() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		nk_uint x = 0;
 		nk_uint y = 0;
 		nk_window_get_scroll(&get_context(), &x, &y);
@@ -3669,12 +3962,21 @@ public:
 	}
 
 	/**
+	 * @brief Sets the scroll offset for the current window.
+	 * @param offsets The offsets to scroll to.
+	 */
+	void set_scroll(vec2<nk_uint> offsets)
+	{
+		nk_window_set_scroll(&get_context(), offsets.x, offsets.y);
+	}
+
+	/**
 	 * @brief Return whether the currently processed window is currently active.
 	 * @return `true` if active.
 	 */
-	[[nodiscard]] bool has_focus() const
+	NUKLEUS_NODISCARD bool has_focus() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_has_focus(&get_context()) == nk_true;
 	}
 
@@ -3682,9 +3984,9 @@ public:
 	 * @brief Return whether the currently processed window is being hovered.
 	 * @return `true` if hovered.
 	 */
-	[[nodiscard]] bool is_hovered()
+	NUKLEUS_NODISCARD bool is_hovered() const
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		return nk_window_is_hovered(&get_context()) == nk_true;
 	}
 
@@ -3698,13 +4000,13 @@ public:
 		nk_rule_horizontal(&get_context(), color, rounding);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Layout
 	 * Layouting in general describes placing widget inside a window with position and size.
-	 * While in this particular implementation there are five different APIs for layouting
-	 * each with different trade offs between control and ease of use.
+	 * There are many different APIs for layouting and
+	 * each has a different trade offs between control and ease of use.
 	 *
 	 * All layouting methods in this library are based around the concept of a row.
 	 * A row has a height the window content grows by and a number of columns and each
@@ -3713,12 +4015,12 @@ public:
 	 * filled with widgets will advance an internal pointer over the allocated row.
 	 *
 	 * To actually define a layout you just call the appropriate layouting function
-	 * and each subsequent widget call will place the widget as specified. Important
-	 * here is that if you define more widgets then columns defined inside the layout
-	 * functions it will allocate the next row without you having to make another layouting
-	 * call.
+	 * and each subsequent widget call will place the widget as specified. Important here
+	 * is that if you define more widgets than columns defined inside the layout functions
+	 * it will allocate the next row without you having to make another layouting call.
+	 * This behavior (automatic repeat) is supported by most layout functions.
 	 *
-	 * Biggest limitation with using all these APIs outside the `nk_layout_space_xxx` API
+	 * Biggest limitation with using all these APIs outside the `layout_space_xxx` API
 	 * is that you have to define the row height for each. However the row height
 	 * often depends on the height of the font.
 	 *
@@ -3727,31 +4029,178 @@ public:
 	 * value if zero.
 	 *
 	 * If you manually want to change the minimum row height then
-	 * use nk_layout_set_min_row_height, and use nk_layout_reset_min_row_height to
+	 * use @ref layout_set_min_row_height, and use @ref layout_reset_min_row_height to
 	 * reset it back to be derived from font height.
 	 *
 	 * Also if you change the font in nuklear it will automatically change the minimum
 	 * row height for you and. This means if you change the font but still want
 	 * a minimum row height smaller than the font you have to repush your value.
 	 *
-	 * For actually more advanced UI I would even recommend using the `nk_layout_space_xxx`
+	 * For actually more advanced UI I would even recommend using the `layout_space_xxx`
 	 * layouting method in combination with a cassowary constraint solver (there are
 	 * some versions on github with permissive license model) to take over all control over widget
 	 * layouting yourself. However for quick and dirty layouting using all the other layouting
 	 * functions should be fine.
 	 *
-	 * @attention Some layouts are automatically repeating (no `scoped_` in name) and do not need an
-	 * end all. Therefore for such layouts you can do just `ctx.row_static(...);` as the
-	 * guard's destructor wouldn't do anything. For scoped layouts, you need to keep them alive:
+	 * @parblock
+	 * @note Some layouts are automatically repeating. This means that after
+	 * a row got the specified amount of widgets (columns), the layout will
+	 * automatically create a new row with identical parameters. For non-repeating
+	 * layout functions you need to call them again before each new row.
+	 * @endparblock
 	 *
-	 *     auto layout = ctx.layout();
-	 *     layout.scoped_row(...);
-	 *     // (place some widgets)
-	 *     layout.row(...); // will call `nk_layout_row_end`
-	 *     // (place some widgets)
-	 *     layout.scoped_space(); // previous layout does not need an end call
-	 *     // (place some widgets)
-	 *     // (in destructor, will call `nk_layout_space_end`)
+	 * @parblock
+	 * @note Capturing layout object created by non-scoped layouts is not required.
+	 * These functions have no `[[nodiscard]]` and holding their returned object
+	 * is only useful if you want to call layout-specific functions (e.g. groups).
+	 * @endparblock
+	 *
+	 * @parblock
+	 * @note If you want to put multiple widgets into the same column use grouping
+	 * API to bundle these widgets into one widget (the group). Groups also allow
+	 * you to nest different layouts inside of them.
+	 * @endparblock
+	 *
+	 * Usage:
+	 *
+	 * 1. **Uniform static/dynamic**: each column with identical configuration.
+	 *    Either static (fixed pixel width) or dynamic (space equally distributed).
+	 *
+	 *    This layout is automatically repeating.
+	 *    ```cpp
+	 *    // first row with height 30, composed of two widgets
+	 *    win.layout_row_dynamic(30, 2);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    // second row with same parameters as defined above
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    // third row uses 0 for height which will use auto layouting
+	 *    win.layout_row_dynamic(0, 2);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *
+	 *    // first row with height 30, composed of two widgets with width 80
+	 *    win.layout_row_static(30, 80, 2);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    // second row with same parameters as defined above
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    // third row uses 0 for height which will use auto layouting
+	 *    win.layout_row_static(0, 80, 2);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    ```
+	 * 2. **Array static/dynamic**: like previous, but provide widths explicitly.
+	 *    This allows to set different fixed width (for static) or
+	 *    space fraction (for dynamic) for each column.
+	 *
+	 *    This layout is automatically repeating.
+	 *    ```cpp
+	 *    // two rows with height 30, composed of two widgets with widths 60 and 40
+	 *    // NOTE: the {}-overload requires std::initializer_list
+	 *    // it is not available when `NUKLEUS_AVOID_STDLIB` is defined
+	 *    win.layout_row_static(30, 2, {60, 40});
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    // two rows with height 30, composed of two widgets with window ratios 0.25 and 0.75
+	 *    win.layout_row_dynamic(30, 2, {0.25, 0.75});
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    // two rows with auto generated height composed of two widgets with window ratios 0.25 and 0.75
+	 *    win.layout_row_dynamic(0, 2, {0.25, 0.75});
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    win.widget(...);
+	 *    ```
+	 * 3. **Scoped static/dynamic**: like previous, but push width before each widget.
+	 *
+	 *    This layout is not automatically repeating.
+	 *    ```cpp
+	 *    // first row with height 25 composed of two widgets with widths 60 and 40
+	 *    {
+	 *        auto layout_row = win.layout_row_static_scoped(25, 2);
+	 *        layout_row.push(60);
+	 *        win.widget(...);
+	 *        layout_row.push(40);
+	 *        win.widget(...);
+	 *    }
+	 *    // second row with height 25 composed of two widgets with window ratios 0.25 and 0.75
+	 *    {
+	 *        auto layout_row = win.layout_row_dynamic_scoped(25, 2);
+	 *        layout_row.push(0.25f);
+	 *        win.widget(...);
+	 *        layout_row.push(0.75f);
+	 *        win.widget(...);
+	 *    }
+	 *    // third row with auto generated height, composed of two widgets with window ratios 0.25 and 0.75
+	 *    {
+	 *        auto layout_row = win.layout_row_dynamic_scoped(0, 2);
+	 *        layout_row.push(0.25f);
+	 *        win.widget(...);
+	 *        layout_row.push(0.75f);
+	 *        win.widget(...);
+	 *    }
+	 *    ```
+	 * 4. **Template**: the most complex and second most flexible API is a simplified flexbox version without line
+	 *    wrapping and weights for dynamic widgets. It is an immediate mode API but needs to be called before
+	 *    creating the widgets. The row template layout has three different per-widget size specifiers:
+	 *    - @ref layout_row_template::push_static defines fixed widget pixel width.
+	 *    - @ref layout_row_template::push_variable defines a minimum widget size
+	 *      (can grow if more space is available and not taken by other widgets).
+	 *    - @ref layout_row_template::push_dynamic widgets are completely flexible and unlike variable widgets can
+	 *      even shrink to zero if not enough space is provided.
+	 *
+	 *    This layout is automatically repeating (but note it has to be finished before creating widgets).
+	 *    ```cpp
+	 *    // two rows with height 30, composed of three widgets
+	 *    {
+	 *        auto layout_row_template = win.layout_row_template_scoped(30);
+	 *        layout_row_template.push_dynamic();
+	 *        layout_row_template.push_variable(80);
+	 *        layout_row_template.push_static(80);
+	 *    }
+	 *    // first row
+	 *    nk_widget(...); // can go to zero if there is not enough space
+	 *    nk_widget(...); // min 80 pixels but can grow bigger if there is enough space
+	 *    nk_widget(...); // static widget with fixed 80 pixel width
+	 *    // second row same layout
+	 *    nk_widget(...);
+	 *    nk_widget(...);
+	 *    nk_widget(...);
+	 *    ```
+	 * 5. **Space**: the most flexible API directly allows you to place widgets inside the window. The space layout
+	 *    API is an immediate mode API which directly sets position and size of a widget. Position and size hereby
+	 *    can be either specified as ratio of allocated space or allocated space local position and pixel size.
+	 *    Since this API is quite powerful there are a number of utility functions to get the available space and
+	 *    convert between local allocated space and screen space.
+	 *
+	 *    This layout is not automatically repeating.
+	 *    ```cpp
+	 *    // static row with height 500
+	 *    // (you can omit columns parameter if you don't want to be bothered)
+	 *    {
+	 *        auto layout_space = win.layout_space_static_scoped(500);
+	 *        layout_space.push({0, 0, 150, 200});
+	 *        win.widget(...);
+	 *        layout_space.push({200, 200, 100, 200});
+	 *        win.widget(...);
+	 *    }
+	 *    // dynamic row with height 500
+	 *    {
+	 *        auto layout_space = win.layout_space_dynamic_scoped(500);
+	 *        layout_space.push({0.5, 0.5, 0.1, 0.1});
+	 *        win.widget(...);
+	 *        layout_space.push({0.7, 0.6, 0.1, 0.1});
+	 *        win.widget(...);
+	 *    }
+	 *    ```
 	 *
 	 * @{
 	 */
@@ -3762,7 +4211,7 @@ public:
 	 * @attention Use this function when you want to gain access to layout functions (e.g. groups)
 	 * but do not want to change or create a new layout.
 	 */
-	[[nodiscard]] layout blank_layout()
+	NUKLEUS_NODISCARD layout layout_blank()
 	{
 		return layout(get_context(), nullptr);
 	}
@@ -3772,257 +4221,162 @@ public:
 	 * @param height Height of each widget in row or zero for auto layouting.
 	 * @param cols Number of widgets inside row.
 	 * @return Blank layout guard object
-	 * @attention This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
+	 * @note This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
 	 * result of this function. You may still want to save it to gain access to layout functions (e.g. groups).
 	 * @details Sets current row layout to share horizontal space between @p cols number of widgets evenly.
 	 * Once called all subsequent widget calls greater than @p cols will allocate a new row with same layout.
-	 *
-	 * The easiest layouting method. Each widget is provided with same horizontal space inside the row and dynamically
-	 * grows if the owning window grows in width. The number of columns dictates the size of each widget by formula:
-	 * `widget_width = (window_width - padding - spacing) / column_count`.
-	 * Just like all other layouting APIs if you define more widgets than columns this
-	 * library will allocate a new row and keep all layouting parameters previously defined.
-	 *
-	 * if (auto window = ctx.scoped_window(...); window) {
-	 *     // first row with height: 30 composed of two widgets
-	 *     window.layout().row_dynamic(30, 2);
-	 *     ctx.widget(...);
-	 *     nk_widget(...);
-	 *     //
-	 *     // second row with same parameter as defined above
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     //
-	 *     // third row uses 0 for height which will use auto layouting
-	 *     nk_layout_row_dynamic(&ctx, 0, 2);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 * }
-	 * nk_end(...);
 	 */
-	layout row_dynamic(float height, int cols) &
+	layout layout_row_dynamic(float height, int cols) &
 	{
 		nk_layout_row_dynamic(&get_context(), height, cols);
-		return blank_layout();
+		return layout_blank();
 	}
 
 	/**
 	 * @brief Static row - repeating layout of fixed-size columns.
 	 * @param height Height of each widget in row or zero for auto layouting.
-	 * @param item_width Pixel width of each widget in the row.
+	 * @param width Pixel width of each widget in the row.
 	 * @param cols Number of widgets inside row.
 	 * @return Blank layout guard object
-	 * @attention This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
+	 * @note This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
 	 * result of this function. You may still want to save it to gain access to layout functions (e.g. groups).
 	 * @details Sets current row layout to fill @p cols number of widgets
-	 * in row with same @p item_width horizontal size. Once called all subsequent
+	 * in row with same @p width horizontal size. Once called all subsequent
 	 * widget calls greater than @p cols will allocate a new row with same layout.
-	 *
-	 * Another easy layouting method. Each widget is provided with same horizontal pixel width inside the row and
-	 * does not grow if the owning window scales smaller or bigger.
-	 *
-	 * if (nk_begin_xxx(...) {
-	 *     // first row with height: 30 composed of two widgets with width: 80
-	 *     nk_layout_row_static(&ctx, 30, 80, 2);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     //
-	 *     // second row with same parameter as defined above
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     //
-	 *     // third row uses 0 for height which will use auto layouting
-	 *     nk_layout_row_static(&ctx, 0, 80, 2);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 * }
-	 * nk_end(...);
 	 */
-	layout row_static(float height, int item_width, int cols) &
+	layout layout_row_static(float height, int width, int cols) &
 	{
-		nk_layout_row_static(&get_context(), height, item_width, cols);
-		return blank_layout();
+		nk_layout_row_static(&get_context(), height, width, cols);
+		return layout_blank();
 	}
 
 	/**
-	 * @brief Scoped row - scoped layout where each widget can have a unique size.
-	 * @param fmt Either `NK_DYNAMIC` for window ratio or `NK_STATIC` for fixed size columns.
-	 * @param row_height Height of each widget in row or zero for auto layouting.
-	 * @param cols Number of widgets inside row.
-	 * @return scope guard object for this %layout.
-	 * @details Start a new dynamic or fixed row with given height and columns.
-	 * Can be statically or dynamically sized.
-	 *
-	 * A little bit more advanced layouting API. Allows to directly
-	 * specify each column pixel or window ratio in a row. It supports either
-	 * directly setting per column pixel width or widget window ratio but not
-	 * both. Furthermore it is a immediate mode API so each value is directly
-	 * pushed before calling a widget. Therefore the layout is not automatically
-	 * repeating like the last two layouting methods.
-	 * if (nk_begin_xxx(...) {
-	 *     // first row with height: 25 composed of two widgets with width 60 and 40
-	 *     nk_layout_row_begin(ctx, NK_STATIC, 25, 2);
-	 *     nk_layout_row_push(ctx, 60);
-	 *     nk_widget(...);
-	 *     nk_layout_row_push(ctx, 40);
-	 *     nk_widget(...);
-	 *     nk_layout_row_end(ctx);
-	 *     //
-	 *     // second row with height: 25 composed of two widgets with window ratio 0.25 and 0.75
-	 *     nk_layout_row_begin(ctx, NK_DYNAMIC, 25, 2);
-	 *     nk_layout_row_push(ctx, 0.25f);
-	 *     nk_widget(...);
-	 *     nk_layout_row_push(ctx, 0.75f);
-	 *     nk_widget(...);
-	 *     nk_layout_row_end(ctx);
-	 *     //
-	 *     // third row with auto generated height: composed of two widgets with window ratio 0.25 and 0.75
-	 *     nk_layout_row_begin(ctx, NK_DYNAMIC, 0, 2);
-	 *     nk_layout_row_push(ctx, 0.25f);
-	 *     nk_widget(...);
-	 *     nk_layout_row_push(ctx, 0.75f);
-	 *     nk_widget(...);
-	 *     nk_layout_row_end(ctx);
-	 * }
-	 * nk_end(...);
+	 * @brief Array layout (dynamic) where each widget has its unique size specified in advance.
+	 * @param height Height of each widget in row or zero for auto layouting.
+	 * @param ratios array of widget widths, ratio to available space
+	 * @return Blank layout guard object
+	 * @note This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
+	 * result of this function. You may still want to save it to gain access to layout functions (e.g. groups).
 	 */
-	[[nodiscard]] layout_row scoped_row(nk_layout_format fmt, float row_height, int cols) &
+	layout layout_row_dynamic(float height, span<const float> ratios) &
 	{
-		nk_layout_row_begin(&get_context(), fmt, row_height, cols);
+		nk_layout_row(&get_context(), NK_DYNAMIC, height, ratios.size(), ratios.begin());
+		return layout_blank();
+	}
+
+	/**
+	 * @brief Array layout (static) where each widget has its unique size specified in advance.
+	 * @param height Height of each widget in row or zero for auto layouting.
+	 * @param ratios array of widget widths, in pixels (fixed size)
+	 * @return Blank layout guard object
+	 * @note This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
+	 * result of this function. You may still want to save it to gain access to layout functions (e.g. groups).
+	 */
+	layout layout_row_static(float height, span<const float> ratios) &
+	{
+		nk_layout_row(&get_context(), NK_STATIC, height, ratios.size(), ratios.begin());
+		return layout_blank();
+	}
+
+#ifndef NUKLEUS_AVOID_STDLIB
+	/**
+	 * @copydoc layout_row_dynamic(float height, span<const float> ratios)&
+	 * @note this overload is not available when `NUKLEUS_AVOID_STDLIB` is defined
+	 */
+	layout layout_row_dynamic(float height, std::initializer_list<float> ratios) &
+	{
+		// There is no .data() but .begin() is guuaranteed to return const T*
+		return layout_row_dynamic(height, {ratios.begin(), static_cast<int>(ratios.size())});
+	}
+
+	/**
+	 * @copydoc layout_row_static(float height, span<const float> ratios)&
+	 * @note this overload is not available when `NUKLEUS_AVOID_STDLIB` is defined
+	 */
+	layout layout_row_static(float height, std::initializer_list<float> ratios) &
+	{
+		return layout_row_static(height, {ratios.begin(), static_cast<int>(ratios.size())});
+	}
+#endif
+
+	/**
+	 * @brief Scoped row (dynamic) - scoped layout where each widget can have a unique size.
+	 * @param height Height of each widget in row (fraction of available space) or zero for auto layouting.
+	 * @param cols Number of widgets inside row.
+	 * @return scope guard object for this layout.
+	 * @note This layout is not autorepeating.
+	 */
+	NUKLEUS_NODISCARD layout_row layout_row_dynamic_scoped(float height, int cols) &
+	{
+		nk_layout_row_begin(&get_context(), NK_DYNAMIC, height, cols);
 		return layout_row(get_context());
 	}
 
 	/**
-	 * @brief Premade row - repeating layout where each widget has its unique size specified in advance.
-	 * @param fmt Either `NK_DYNAMIC` for window ratio or `NK_STATIC` for fixed size columns.
-	 * @param height Height of each widget in row or zero for auto layouting.
-	 * @param cols Number of widgets inside row and also the array length of @p ratio
-	 * @param ratio array of widget widths, if @p fmt is `NK_STATIC` - in pixels, if `NK_DYNAMIC` - in ratio to window
-	 * @return Blank layout guard object
-	 * @attention This layout is autorepeating and does not need cleanup. Therefore you don't need to keep the
-	 * result of this function. You may still want to save it to gain access to layout functions (e.g. groups).
-	 * @details Specifies row columns in array as either window ratio or size.
-	 * Can be statically or dynamically sized.
-	 *
-	 * The array counterpart to scoped_row. Instead of pushing either pixel or window ratio for
-	 * every widget it allows to define it by an array. The trade of for less control is that
-	 * it is automatically repeating. Otherwise the behavior is the same.
-	 * if (nk_begin_xxx(...) {
-	 *     // two rows with height: 30 composed of two widgets with width 60 and 40
-	 *     const float ratio[] = {60,40};
-	 *     nk_layout_row(ctx, NK_STATIC, 30, 2, ratio);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     //
-	 *     // two rows with height: 30 composed of two widgets with window ratio 0.25 and 0.75
-	 *     const float ratio[] = {0.25, 0.75};
-	 *     nk_layout_row(ctx, NK_DYNAMIC, 30, 2, ratio);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     //
-	 *     // two rows with auto generated height composed of two widgets with window ratio 0.25 and 0.75
-	 *     const float ratio[] = {0.25, 0.75};
-	 *     nk_layout_row(ctx, NK_DYNAMIC, 30, 2, ratio);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 * }
-	 * nk_end(...);
+	 * @brief Scoped row (static) - scoped layout where each widget can have a unique size.
+	 * @param height Height of each widget in row (in pixels) or zero for auto layouting.
+	 * @param cols Number of widgets inside row.
+	 * @return scope guard object for this layout.
+	 * @note This layout is not autorepeating.
 	 */
-	layout row(nk_layout_format fmt, float height, int cols, const float* ratio) &
+	NUKLEUS_NODISCARD layout_row layout_row_static_scoped(float height, int cols) &
 	{
-		nk_layout_row(&get_context(), fmt, height, cols, ratio);
-		return blank_layout();
+		nk_layout_row_begin(&get_context(), NK_STATIC, height, cols);
+		return layout_row(get_context());
 	}
 
 	/**
-	 * @brief Template row - scoped and repeating layout where a set of layout behaviors is specified in advance.
-	 * @param row_height Height of each widget in row or zero for auto layouting.
-	 * @return scope guard object for this %layout.
-	 * @details Begin the row template scope.
+	 * @brief Template row - layout where a set of layout behaviors is specified in advance.
+	 * @param height Height of each widget in row or zero for auto layouting.
+	 * @return scope guard object for this layout.
+	 * @details Begins the row template scope.
 	 * Each widget can be separately statically or dynamically sized.
 	 * This layout must be completed before widgets are added.
 	 * Either destroy the layout guard object or call reset before adding widgets.
-	 *
-	 * The most complex and second most flexible API is a simplified flexbox version without line
-	 * wrapping and weights for dynamic widgets. It is an immediate mode API but unlike scoped_row
-	 * it has auto repeat behavior and needs to be completed before calling the templated widgets.
-	 *
-	 * The row template layout has three different per widget size specifiers:
-	 *
-	 * - Static: fixed widget pixel width. They do not grow if the row grows and will always stay the same.
-	 * - Variable: defines a minimum widget size but it also can grow if more space is available not taken by other widgets.
-	 * - Dynamic: completely flexible and unlike variable widgets can even shrink to zero if not enough space is provided.
-	 *
-	 * if (nk_begin_xxx(...) {
-	 *     // two rows with height: 30 composed of three widgets
-	 *     nk_layout_row_template_begin(ctx, 30);
-	 *     nk_layout_row_template_push_dynamic(ctx);
-	 *     nk_layout_row_template_push_variable(ctx, 80);
-	 *     nk_layout_row_template_push_static(ctx, 80);
-	 *     nk_layout_row_template_end(ctx);
-	 *     //
-	 *     // first row
-	 *     nk_widget(...); // dynamic widget can go to zero if not enough space
-	 *     nk_widget(...); // variable widget with min 80 pixel but can grow bigger if enough space
-	 *     nk_widget(...); // static widget with fixed 80 pixel width
-	 *     //
-	 *     // second row same layout
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 *     nk_widget(...);
-	 * }
-	 * nk_end(...);
 	 */
-	[[nodiscard]] layout_row_template scoped_row_template(float row_height) &
+	NUKLEUS_NODISCARD layout_row_template layout_row_template_scoped(float height) &
 	{
-		nk_layout_row_template_begin(&get_context(), row_height);
+		nk_layout_row_template_begin(&get_context(), height);
 		return layout_row_template(get_context());
 	}
 
 	/**
-	 * @brief Space layout - unconstrained, individual widget placement.
-	 * @param fmt Either `NK_DYNAMIC` for window ratio or `NK_STATIC` for fixed size columns.
+	 * @brief Space layout (dynamic) - unconstrained, individual widget placement.
 	 * @param height Height of each widget in row or zero for auto layouting.
 	 * @param widget_count Number of widgets inside row.
-	 * @return scope guard object for this %layout.
+	 * @return scope guard object for this layout.
 	 * @details Begin a new layouting space that allows to specify each widget's position and size.
 	 * Allows to directly place widgets inside the window. The space layout API is an immediate mode API which
 	 * does not support row auto repeat and directly sets position and size of a widget. Position and size
-	 * hereby can be either specified as ratio of allocated space or allocated space local position and pixel size.
+	 * hereby are specified as a ratio of allocated space.
 	 * Since this API is quite powerful there are a number of utility functions to get the available space and
 	 * convert between local allocated space and screen space.
-	 *
-	 * if (nk_begin_xxx(...) {
-	 *     // static row with height: 500 (you can set column count to INT_MAX if you don't want to be bothered)
-	 *     nk_layout_space_begin(ctx, NK_STATIC, 500, INT_MAX);
-	 *     nk_layout_space_push(ctx, nk_rect(0,0,150,200));
-	 *     nk_widget(...);
-	 *     nk_layout_space_push(ctx, nk_rect(200,200,100,200));
-	 *     nk_widget(...);
-	 *     nk_layout_space_end(ctx);
-	 *     //
-	 *     // dynamic row with height: 500 (you can set column count to INT_MAX if you don't want to be bothered)
-	 *     nk_layout_space_begin(ctx, NK_DYNAMIC, 500, INT_MAX);
-	 *     nk_layout_space_push(ctx, nk_rect(0.5,0.5,0.1,0.1));
-	 *     nk_widget(...);
-	 *     nk_layout_space_push(ctx, nk_rect(0.7,0.6,0.1,0.1));
-	 *     nk_widget(...);
-	 * }
-	 * nk_end(...);
 	 */
-	[[nodiscard]] layout_space scoped_space(nk_layout_format fmt, float height, int widget_count) &
+	NUKLEUS_NODISCARD layout_space layout_space_dynamic_scoped(float height, int widget_count = max_signed_value<int>()) &
 	{
-		nk_layout_space_begin(&get_context(), fmt, height, widget_count);
+		nk_layout_space_begin(&get_context(), NK_DYNAMIC, height, widget_count);
 		return layout_space(get_context());
 	}
 
-	///@}
+	/**
+	 * @brief Space layout (static) - unconstrained, individual widget placement.
+	 * @param height Height of each widget in row or zero for auto layouting.
+	 * @param widget_count Number of widgets inside row.
+	 * @return scope guard object for this layout.
+	 * @details Begin a new layouting space that allows to specify each widget's position and size.
+	 * Allows to directly place widgets inside the window. The space layout API is an immediate mode API which
+	 * does not support row auto repeat and directly sets position and size of a widget. Position and size
+	 * hereby are specified as allocated space local position and pixel size.
+	 * Since this API is quite powerful there are a number of utility functions to get the available space and
+	 * convert between local allocated space and screen space.
+	 */
+	NUKLEUS_NODISCARD layout_space layout_space_static_scoped(float height, int widget_count = max_signed_value<int>()) &
+	{
+		nk_layout_space_begin(&get_context(), NK_STATIC, height, widget_count);
+		return layout_space(get_context());
+	}
+
+	/// @}
 
 	/**
 	 * @name Layout - global settings and utility
@@ -4051,7 +4405,7 @@ public:
 	/**
 	 * @brief Return the width of the next row allocated by one of the layouting functions.
 	 */
-	[[nodiscard]] rect<float> layout_widget_bounds()
+	NUKLEUS_NODISCARD rect<float> layout_widget_bounds() const
 	{
 		return nk_layout_widget_bounds(&get_context());
 	}
@@ -4061,12 +4415,12 @@ public:
 	 * @param pixel_width Pixel width to convert to window ratio.
 	 * @return Window ratio.
 	 */
-	[[nodiscard]] float layout_ratio_from_pixel(float pixel_width)
+	NUKLEUS_NODISCARD float layout_ratio_from_pixel(float pixel_width) const
 	{
 		return nk_layout_ratio_from_pixel(&get_context(), pixel_width);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Group management
@@ -4080,7 +4434,7 @@ public:
 	 * @param x_offset x offset output, use null to ignore
 	 * @param y_offset y offset output, use null to ignore
 	 */
-	void group_get_scroll(const char* id, nk_uint* x_offset, nk_uint* y_offset)
+	void group_get_scroll(const char* id, nk_uint* x_offset, nk_uint* y_offset) // MISSING CONST
 	{
 		nk_group_get_scroll(&get_context(), id, x_offset, y_offset);
 	}
@@ -4090,7 +4444,7 @@ public:
 	 * @param id The id of the group to get the scroll position of
 	 * @return x and y offsets.
 	 */
-	vec2<nk_uint> group_get_scroll(const char* id)
+	vec2<nk_uint> group_get_scroll(const char* id) // MISSING CONST
 	{
 		vec2<nk_uint> offset{};
 		nk_group_get_scroll(&get_context(), id, &offset.x, &offset.y);
@@ -4108,25 +4462,36 @@ public:
 		nk_group_set_scroll(&get_context(), id, x_offset, y_offset);
 	}
 
-	///@}
+	void group_set_scroll(const char* id, vec2<nk_uint> offsets)
+	{
+		nk_group_set_scroll(&get_context(), id, offsets.x, offsets.y);
+	}
 
-private:
-	tree scoped_tree_internal(nk_bool result)
+	/// @}
+
+	/**
+	 * @name Internal functions
+	 * These functions are public for implementation reasons.
+	 * They are used by `NUKLEUS_TREE_*` macros. Do not use these directly.
+	 * @{
+	 */
+	tree _tree_scoped_internal(nk_bool result)
 	{
 		return tree(get_context(), result == nk_true ? &nk_tree_pop : nullptr);
 	}
 
-	tree scoped_tree_state_internal(nk_bool result)
+	tree _tree_state_scoped_internal(nk_bool result)
 	{
 		return tree(get_context(), result == nk_true ? &nk_tree_state_pop : nullptr);
 	}
 
-	tree scoped_tree_element_internal(nk_bool result)
+	tree _tree_element_scoped_internal(nk_bool result)
 	{
 		return tree(get_context(), result == nk_true ? &nk_tree_element_pop : nullptr);
 	}
 
-public:
+	/// @}
+
 	/**
 	 * @name Trees
 	 * Trees represent two different concepts. First the concept of a collapsible
@@ -4137,16 +4502,17 @@ public:
 	 * Trees thereby can be nested for tree representations and multiple nested
 	 * collapsible UI sections. Each starting functions takes a title label
 	 * and optionally an image to be displayed and the initial collapse state from
-	 * the nk_collapse_states section.
+	 * the `nk_collapse_states` section.
 	 *
 	 * The runtime state of the tree is either stored outside the library by the caller
-	 * or inside which requires a unique ID. The unique ID can either be generated
-	 * automatically from `__FILE__` and `__LINE__` with function `nk_tree_push`,
-	 * by `__FILE__` and a user provided ID generated for example by loop index with
-	 * function `nk_tree_push_id` or completely provided from outside by user with
-	 * function `nk_tree_push_hashed`.
+	 * or inside which requires a unique ID. The unique ID can either be generated automatically
+	 * from `__FILE__` and `__LINE__` with macro `nk_tree_push` (@ref NUKLEUS_TREE_SCOPED), by
+	 * `__FILE__` and a user provided ID generated for example by loop index with macro
+	 * `nk_tree_push_id` (@ref NUKLEUS_TREE_ID_SCOPED) or completely provided from outside by
+	 * user with function `nk_tree_push_hashed` (@ref nk::window::tree_hashed_scoped).
 	 *
-	 * *Usage:*
+	 * **Usage:**
+	 *
 	 * Each tree starting function will return a scope_guard object which must be checked.
 	 * If the check fails, the tree is collapsed or hidden and therefore does not need
 	 * to be filled with content.
@@ -4155,8 +4521,6 @@ public:
 	 * calculates an auto height based on the currently used font size.
 	 * @{
 	 */
-
-	// TODO nk_tree_push, nk_tree_push_id, nk_tree_image_push, nk_tree_image_push_id, nk_tree_element_push, nk_tree_element_push_id
 
 	/**
 	 * @brief Start a collapsible UI section with internal state management with full
@@ -4169,20 +4533,20 @@ public:
 	 * @param seed Seeding value if this function is called in a loop or default to `0`.
 	 * @return Tree scope guard object that should be immediately checked.
 	 */
-	[[nodiscard]] tree scoped_tree_hashed(
+	NUKLEUS_NODISCARD tree tree_hashed_scoped(
 		nk_tree_type type, const char* title, nk_collapse_states initial_state, const char* hash, int len, int seed = 0)
 	{
-		return scoped_tree_internal(nk_tree_push_hashed(&get_context(), type, title, initial_state, hash, len, seed));
+		return _tree_scoped_internal(nk_tree_push_hashed(&get_context(), type, title, initial_state, hash, len, seed));
 	}
 
 	/**
-	 * @copydoc scoped_tree_hashed
+	 * @copydoc tree_hashed_scoped
 	 * @param img Image to display inside the header on the left of the label.
 	 */
-	[[nodiscard]] tree scoped_tree_image_hashed(
+	NUKLEUS_NODISCARD tree tree_image_hashed_scoped(
 		nk_tree_type type, image img, const char* title, nk_collapse_states initial_state, const char* hash, int len, int seed = 0)
 	{
-		return scoped_tree_internal(nk_tree_image_push_hashed(&get_context(), type, img, title, initial_state, hash, len, seed));
+		return _tree_scoped_internal(nk_tree_image_push_hashed(&get_context(), type, img, title, initial_state, hash, len, seed));
 	}
 
 	/**
@@ -4192,82 +4556,133 @@ public:
 	 * @param state Persistent state to update.
 	 * @return Tree scope guard object that should be immediately checked.
 	 */
-	[[nodiscard]] tree scoped_tree_state(nk_tree_type type, const char* title, nk_collapse_states& state)
+	NUKLEUS_NODISCARD tree tree_state_scoped(nk_tree_type type, const char* title, nk_collapse_states& state)
 	{
-		return scoped_tree_state_internal(nk_tree_state_push(&get_context(), type, title, &state));
+		return _tree_state_scoped_internal(nk_tree_state_push(&get_context(), type, title, &state));
 	}
 
 	/**
-	 * @copydoc scoped_tree_state(nk_tree_type, const char*, nk_collapse_states&)
+	 * @copydoc tree_state_scoped(nk_tree_type, const char*, nk_collapse_states&)
 	 */
-	[[nodiscard]] tree scoped_tree_state(nk_tree_type type, const char* title, bool& state)
+	NUKLEUS_NODISCARD tree tree_state_scoped(nk_tree_type type, const char* title, bool& state)
 	{
 		nk_collapse_states collapse_state = state ? NK_MAXIMIZED : NK_MINIMIZED;
-		tree result = scoped_tree_state(type, title, collapse_state);
+		tree result = tree_state_scoped(type, title, collapse_state);
 		state = collapse_state == NK_MAXIMIZED;
 		return result;
 	}
 
 	/**
-	 * @copydoc scoped_tree_state(nk_tree_type, const char*, nk_collapse_states&)
+	 * @copydoc tree_state_scoped(nk_tree_type, const char*, nk_collapse_states&)
 	 * @param img Image to display inside the header on the left of the label.
 	 */
-	[[nodiscard]] tree scoped_tree_state_image(
+	NUKLEUS_NODISCARD tree tree_state_image_scoped(
 		nk_tree_type type, image img, const char* title, nk_collapse_states& state)
 	{
-		return scoped_tree_state_internal(nk_tree_state_image_push(&get_context(), type, img, title, &state));
+		return _tree_state_scoped_internal(nk_tree_state_image_push(&get_context(), type, img, title, &state));
 	}
 
 	/**
-	 * @copydoc scoped_tree_state_image(nk_tree_type, image, const char*, nk_collapse_states&)
+	 * @copydoc tree_state_image_scoped(nk_tree_type, image, const char*, nk_collapse_states&)
 	 */
-	[[nodiscard]] tree scoped_tree_state_image(
+	NUKLEUS_NODISCARD tree tree_state_image_scoped(
 		nk_tree_type type, image img, const char* title, bool& state)
 	{
 		nk_collapse_states collapse_state = state ? NK_MAXIMIZED : NK_MINIMIZED;
-		tree result = scoped_tree_state_image(type, img, title, collapse_state);
+		tree result = tree_state_image_scoped(type, img, title, collapse_state);
 		state = collapse_state == NK_MAXIMIZED;
 		return result;
 	}
 
 	/**
-	 * @brief TODO
-	 * @param type
-	 * @param title
-	 * @param initial_state
-	 * @param selected
-	 * @param hash
-	 * @param len
-	 * @param seed
-	 * @return
+	 * @brief Start a collapsible UI section with external state management.
+	 * @param type Visually mark a tree node header as either a collapsible UI section or tree node.
+	 * @param title Label printed in the tree header.
+	 * @param initial_state Initial tree state value.
+	 * @param selected State to update
+	 * @param hash Memory block or string to generate the ID from.
+	 * @param len Size of passed memory block or string in @p hash.
+	 * @param seed Seeding value if this function is called in a loop or default to `0`.
+	 * @return Tree scope guard object that should be immediately checked.
 	 */
-	[[nodiscard]] tree scoped_tree_element_hashed(
+	NUKLEUS_NODISCARD tree tree_element_hashed_scoped(
 		nk_tree_type type, const char* title, nk_collapse_states initial_state, bool& selected, const char* hash, int len, int seed = 0)
 	{
-		return scoped_tree_element_internal(nk_tree_element_push_hashed(
+		return _tree_element_scoped_internal(nk_tree_element_push_hashed(
 			&get_context(), type, title, initial_state, detail::output_bool(selected), hash, len, seed));
 	}
 
 	/**
-	 * @brief TODO
-	 * @param type
-	 * @param img
-	 * @param title
-	 * @param initial_state
-	 * @param selected
-	 * @param hash
-	 * @param len
-	 * @param seed
-	 * @return
+	 * @copydoc tree_element_hashed_scoped
+	 * @param img Image to display inside the header on the left of the label.
 	 */
-	[[nodiscard]] tree scoped_tree_element_image_hashed(
+	NUKLEUS_NODISCARD tree tree_element_image_hashed_scoped(
 		nk_tree_type type, image img, const char* title, nk_collapse_states initial_state, bool& selected, const char* hash, int len, int seed = 0)
 	{
-		return scoped_tree_element_internal(nk_tree_element_image_push_hashed(
+		return _tree_element_scoped_internal(nk_tree_element_image_push_hashed(
 			&get_context(), type, img, title, initial_state, detail::output_bool(selected), hash, len, seed));
 	}
 
-	///@}
+	/**
+	 * @brief Start a collapsible UI section with internal state management.
+	 * @param win nk::window&
+	 * @param type nk_tree_type.
+	 * @param title const char*.
+	 * @param state Initial tree state of type nk_collapse_states.
+	 * @return Tree scope guard object that should be immediately checked.
+	 *
+	 * @details This macro automates @ref nk::window::tree_hashed_scoped.
+	 */
+#define NUKLEUS_TREE_SCOPED(win, type, title, state) \
+	win._tree_scoped_internal(nk_tree_push   (&win.get_context(), type, title, state))
+	/**
+	 * @copydoc NUKLEUS_TREE_SCOPED
+	 * @param id Loop counter index if this function is called in a loop.
+	 */
+#define NUKLEUS_TREE_ID_SCOPED(win, type, title, state, id) \
+	win._tree_scoped_internal(nk_tree_push_id(&win.get_context(), type, title, state, id))
+
+	/**
+	 * @brief Start a collapsible UI section with internal state management.
+	 * @param win nk::window&.
+	 * @param type nk_tree_type.
+	 * @param img nk_image.
+	 * @param title const char*.
+	 * @param state Initial tree state of type nk_collapse_states.
+	 * @return Tree scope guard object that should be immediately checked.
+	 *
+	 * @details This macro automates @ref nk::window::tree_image_hashed_scoped.
+	 */
+#define NUKLEUS_TREE_IMAGE_SCOPED(win, type, img, title, state) \
+	win._tree_scoped_internal(nk_tree_image_push   (&win.get_context(), type, img, title, state))
+	/**
+	 * @copydoc NUKLEUS_TREE_IMAGE_SCOPED
+	 * @param id Loop counter index if this function is called in a loop.
+	 */
+#define NUKLEUS_TREE_IMAGE_ID_SCOPED(win, type, img, title, state, id) \
+	win._tree_scoped_internal(nk_tree_image_push_id(&win.get_context(), type, img, title, state, id))
+
+	/**
+	 * @brief Start a collapsible UI section with external state management.
+	 * @param win nk::window&.
+	 * @param type nk_tree_type.
+	 * @param title const char*.
+	 * @param state Initial tree state of type nk_collapse_states.
+	 * @param sel bool& selected state, will be updated
+	 * @return Tree scope guard object that should be immediately checked.
+	 *
+	 * @details This macro automates @ref nk::window::tree_element_hashed_scoped.
+	 */
+#define NUKLEUS_TREE_ELEMENT_SCOPED(win, type, title, state, sel) \
+	win._tree_element_scoped_internal(nk_tree_element_push   (&win.get_context(), type, title, state, ::nk::detail::output_bool(sel)))
+	/**
+	 * @copydoc NUKLEUS_TREE_ELEMENT_SCOPED
+	 * @param id Loop counter index if this function is called in a loop.
+	 */
+#define NUKLEUS_TREE_ELEMENT_ID_SCOPED(win, type, title, state, sel, id) \
+	win._tree_element_scoped_internal(nk_tree_element_push_id(&win.get_context(), type, title, state, ::nk::detail::output_bool(sel), id))
+
+	/// @}
 
 	/**
 	 * @name Widget
@@ -4295,7 +4710,7 @@ public:
 		return result;
 	}
 
-	widget_layout_states widget_fitting(rect<float>& bounds, vec2<float> item_padding)
+	widget_layout_states widget_fitting(rect<float>& bounds, vec2<float> item_padding) const
 	{
 		struct nk_rect r{};
 		auto result = nk_widget_fitting(&r, &get_context(), item_padding);
@@ -4303,42 +4718,42 @@ public:
 		return result;
 	}
 
-	rect<float> widget_bounds()
+	rect<float> widget_bounds() const
 	{
 		return nk_widget_bounds(&get_context());
 	}
 
-	vec2<float> widget_position()
+	vec2<float> widget_position() const
 	{
 		return nk_widget_position(&get_context());
 	}
 
-	vec2<float> widget_size()
+	vec2<float> widget_size() const
 	{
 		return nk_widget_size(&get_context());
 	}
 
-	float widget_width()
+	float widget_width() const
 	{
 		return nk_widget_width(&get_context());
 	}
 
-	float widget_height()
+	float widget_height() const
 	{
 		return nk_widget_height(&get_context());
 	}
 
-	bool widget_is_hovered()
+	bool widget_is_hovered() const
 	{
 		return nk_widget_is_hovered(&get_context()) == nk_true;
 	}
 
-	bool widget_is_mouse_clicked(buttons btn)
+	bool widget_is_mouse_clicked(buttons btn) const
 	{
 		return nk_widget_is_mouse_clicked(&get_context(), btn) == nk_true;
 	}
 
-	bool widget_has_mouse_click_down(buttons btn, bool down)
+	bool widget_has_mouse_click_down(buttons btn, bool down) const
 	{
 		return nk_widget_has_mouse_click_down(&get_context(), btn, down) == nk_true;
 	}
@@ -4348,13 +4763,35 @@ public:
 		nk_spacing(&get_context(), cols);
 	}
 
-	[[nodiscard]] auto scoped_widget_disable()
+	/**
+	 * @brief enable/disable widgets in scope.
+	 * Disable widgets are greyed out and do not react to any input events.
+	 * @param enable if true - no change, if false - disable widgets
+	 * @return scope guard to hold, no checking required (guard is empty on `false`)
+	 *
+	 * @details It was a hard decision how to name this function:
+	 * - https://english.stackexchange.com/questions/31878/noun-for-enable-enability-enabliness
+	 * - https://english.stackexchange.com/questions/229276/is-there-a-better-word-for-enabledness
+	 * - https://english.stackexchange.com/questions/92781/what-term-describes-the-state-of-being-either-enabled-or-disabled
+	 */
+	NUKLEUS_NODISCARD simple_scope_guard widget_enabledness_scoped(bool enable)
 	{
-		nk_widget_disable_begin(&get_context());
-		return make_scoped([ctx = &get_context()]() { nk_widget_disable_end(ctx); });
+		if (!enable)
+			nk_widget_disable_begin(&get_context());
+
+		return simple_scope_guard(get_context(), enable ? nullptr : nk_widget_disable_end);
 	}
 
-	///@}
+	/**
+	 * @brief equivalent to `widget_enabledness_scoped(false)`
+	 * @return scope guard to hold, no checking required
+	 */
+	NUKLEUS_NODISCARD simple_scope_guard widget_disable_scoped()
+	{
+		return widget_enabledness_scoped(false);
+	}
+
+	/// @}
 
 	/**
 	 * @name Text (unformatted)
@@ -4412,12 +4849,12 @@ public:
 		nk_image_color(&get_context(), img, col);
 	}
 
-	///@}
+	/// @}
 
 #ifdef NK_INCLUDE_STANDARD_VARARGS
 	/**
 	 * @name Text (formatted)
-	 * Requires to `#define NK_INCLUDE_STANDARD_VARARGS`.
+	 * Requires `NK_INCLUDE_STANDARD_VARARGS`.
 	 * UNDOCUMENTED
 	 * @{
 	 */
@@ -4496,7 +4933,8 @@ public:
 
 	void value(const char* prefix, double value)
 	{
-		// there is no nk_value_double but the implementation of nk_value_float supports them
+		// There is no nk_value_double but the implementation of nk_value_float casts to double internally.
+		// The line below is identical to nk_value_float except it actually uses double parameter.
 		nk_labelf(&get_context(), NK_TEXT_LEFT, "%s: %.3f", prefix, value);
 	}
 
@@ -4515,7 +4953,7 @@ public:
 		nk_value_color_hex(&get_context(), prefix, col);
 	}
 
-	///@}
+	/// @}
 #endif // NK_INCLUDE_STANDARD_VARARGS
 
 	/**
@@ -4524,104 +4962,114 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] bool button_text(const char* title, int len)
+	NUKLEUS_NODISCARD bool button_text(const char* title, int len)
 	{
 		return nk_button_text(&get_context(), title, len) == nk_true;
 	}
 
-	[[nodiscard]] bool button_label(const char* title)
+	NUKLEUS_NODISCARD bool button_label(const char* title)
 	{
 		return nk_button_label(&get_context(), title) == nk_true;
 	}
 
-	[[nodiscard]] bool button_color(color col)
+	NUKLEUS_NODISCARD bool button_color(color col)
 	{
 		return nk_button_color(&get_context(), col) == nk_true;
 	}
 
-	[[nodiscard]] bool button_symbol(symbol_type symbol)
+	NUKLEUS_NODISCARD bool button_symbol(symbol_type symbol)
 	{
 		return nk_button_symbol(&get_context(), symbol) == nk_true;
 	}
 
-	[[nodiscard]] bool button_image(nk::image img)
+	NUKLEUS_NODISCARD bool button_image(nk::image img)
 	{
 		return nk_button_image(&get_context(), img) == nk_true;
 	}
 
-	[[nodiscard]] bool button_symbol_label(symbol_type symbol, const char* label, nk_flags align)
+	NUKLEUS_NODISCARD bool button_symbol_label(symbol_type symbol, const char* label, nk_flags align)
 	{
 		return nk_button_symbol_label(&get_context(), symbol, label, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_symbol_text(symbol_type symbol, const char* text, int len, nk_flags align)
+	NUKLEUS_NODISCARD bool button_symbol_text(symbol_type symbol, const char* text, int len, nk_flags align)
 	{
 		return nk_button_symbol_text(&get_context(), symbol, text, len, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_image_label(nk::image img, const char* label, nk_flags align)
+	NUKLEUS_NODISCARD bool button_image_label(nk::image img, const char* label, nk_flags align)
 	{
 		return nk_button_image_label(&get_context(), img, label, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_image_text(nk::image img, const char* text, int len, nk_flags align)
+	NUKLEUS_NODISCARD bool button_image_text(nk::image img, const char* text, int len, nk_flags align)
 	{
 		return nk_button_image_text(&get_context(), img, text, len, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_text_styled(const style_button& style, const char* title, int len)
+	NUKLEUS_NODISCARD bool button_text_styled(const style_button& style, const char* title, int len)
 	{
 		return nk_button_text_styled(&get_context(), &style, title, len) == nk_true;
 	}
 
-	[[nodiscard]] bool button_label_styled(const style_button& style, const char* title)
+	NUKLEUS_NODISCARD bool button_label_styled(const style_button& style, const char* title)
 	{
 		return nk_button_label_styled(&get_context(), &style, title) == nk_true;
 	}
 
-	[[nodiscard]] bool button_symbol_styled(const style_button& style, symbol_type symbol)
+	NUKLEUS_NODISCARD bool button_symbol_styled(const style_button& style, symbol_type symbol)
 	{
 		return nk_button_symbol_styled(&get_context(), &style, symbol) == nk_true;
 	}
 
-	[[nodiscard]] bool button_image_styled(const style_button& style, nk::image img)
+	NUKLEUS_NODISCARD bool button_image_styled(const style_button& style, nk::image img)
 	{
 		return nk_button_image_styled(&get_context(), &style, img) == nk_true;
 	}
 
-	[[nodiscard]] bool button_symbol_text_styled(const style_button& style, symbol_type symbol, const char* text, int len, nk_flags align)
+	NUKLEUS_NODISCARD bool button_symbol_text_styled(const style_button& style, symbol_type symbol, const char* text, int len, nk_flags align)
 	{
 		return nk_button_symbol_text_styled(&get_context(), &style, symbol, text, len, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_symbol_label_styled(const style_button& style, symbol_type symbol, const char* title, nk_flags align)
+	NUKLEUS_NODISCARD bool button_symbol_label_styled(const style_button& style, symbol_type symbol, const char* title, nk_flags align)
 	{
 		return nk_button_symbol_label_styled(&get_context(), &style, symbol, title, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_image_label_styled(const style_button& style, nk::image img, const char* label, nk_flags align)
+	NUKLEUS_NODISCARD bool button_image_label_styled(const style_button& style, nk::image img, const char* label, nk_flags align)
 	{
 		return nk_button_image_label_styled(&get_context(), &style, img, label, align) == nk_true;
 	}
 
-	[[nodiscard]] bool button_image_text_styled(const style_button& style, nk::image img, const char* text, int len, nk_flags align)
+	NUKLEUS_NODISCARD bool button_image_text_styled(const style_button& style, nk::image img, const char* text, int len, nk_flags align)
 	{
 		return nk_button_image_text_styled(&get_context(), &style, img, text, len, align) == nk_true;
 	}
 
+	/**
+	 * @brief set button behavior (persistent, untill changed again)
+	 * @param behavior behavior to set
+	 * @details use `NK_BUTTON_DEFAULT` or @ref button_reset_behavior to reset
+	 */
 	void button_set_behavior(button_behavior behavior)
 	{
 		nk_button_set_behavior(&get_context(), behavior);
 	}
 
-	[[nodiscard]] scoped_override_guard scoped_button_behavior(button_behavior behavior)
+	void button_reset_behavior()
+	{
+		nk_button_set_behavior(&get_context(), NK_BUTTON_DEFAULT);
+	}
+
+	NUKLEUS_NODISCARD scoped_override_guard button_behavior_scoped(button_behavior behavior)
 	{
 		return scoped_override_guard(
 			get_context(),
 			nk_button_push_behavior(&get_context(), behavior) == nk_true ? &nk_button_pop_behavior : nullptr);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Checkbox
@@ -4629,62 +5077,62 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] bool check_label(const char* label, bool active)
+	NUKLEUS_NODISCARD bool checkbox_label(const char* label, bool active)
 	{
 		return nk_check_label(&get_context(), label, active) == nk_true;
 	}
 
-	[[nodiscard]] bool check_text(const char* text, int len, bool active)
+	NUKLEUS_NODISCARD bool checkbox_text(const char* text, int len, bool active)
 	{
 		return nk_check_text(&get_context(), text, len, active) == nk_true;
 	}
 
-	[[nodiscard]] bool check_text_align(const char* text, int len, bool active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool checkbox_text_align(const char* text, int len, bool active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_check_text_align(&get_context(), text, len, active, widget_alignment, text_alignment) == nk_true;
 	}
 
-	[[nodiscard]] unsigned check_flags_label(const char* label, unsigned flags, unsigned value)
+	NUKLEUS_NODISCARD unsigned checkbox_flags_label(const char* label, unsigned flags, unsigned value)
 	{
 		return nk_check_flags_label(&get_context(), label, flags, value);
 	}
 
-	[[nodiscard]] unsigned check_flags_text(const char* text, int len, unsigned flags, unsigned value)
+	NUKLEUS_NODISCARD unsigned checkbox_flags_text(const char* text, int len, unsigned flags, unsigned value)
 	{
 		return nk_check_flags_text(&get_context(), text, len, flags, value);
 	}
 
-	[[nodiscard]] bool checkbox_label(const char* label, bool& active)
+	NUKLEUS_NODISCARD bool checkbox_label_in_place(const char* label, bool& active)
 	{
 		return nk_checkbox_label(&get_context(), label, detail::output_bool(active)) == nk_true;
 	}
 
-	[[nodiscard]] bool checkbox_label_align(const char* label, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool checkbox_label_align_in_place(const char* label, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_checkbox_label_align(&get_context(), label, detail::output_bool(active), widget_alignment, text_alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool checkbox_text(const char* text, int len, bool& active)
+	NUKLEUS_NODISCARD bool checkbox_text_in_place(const char* text, int len, bool& active)
 	{
 		return nk_checkbox_text(&get_context(), text, len, detail::output_bool(active)) == nk_true;
 	}
 
-	[[nodiscard]] bool checkbox_text_align(const char* text, int len, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool checkbox_text_align_in_place(const char* text, int len, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_checkbox_text_align(&get_context(), text, len, detail::output_bool(active), widget_alignment, text_alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool checkbox_flags_label(const char* label, unsigned& flags, unsigned value)
+	NUKLEUS_NODISCARD bool checkbox_flags_label_in_place(const char* label, unsigned& flags, unsigned value)
 	{
 		return nk_checkbox_flags_label(&get_context(), label, &flags, value) == nk_true;
 	}
 
-	[[nodiscard]] bool checkbox_flags_text(const char* text, int len, unsigned& flags, unsigned value)
+	NUKLEUS_NODISCARD bool checkbox_flags_text_in_place(const char* text, int len, unsigned& flags, unsigned value)
 	{
 		return nk_checkbox_flags_text(&get_context(), text, len, &flags, value) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Radio Button
@@ -4692,46 +5140,46 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] bool radio_label(const char* label, bool& active)
+	NUKLEUS_NODISCARD bool radio_label_in_place(const char* label, bool& active)
 	{
 		return nk_radio_label(&get_context(), label, detail::output_bool(active)) == nk_true;
 	}
-	[[nodiscard]] bool radio_label_align(const char* label, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool radio_label_align_in_place(const char* label, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_radio_label_align(&get_context(), label, detail::output_bool(active), widget_alignment, text_alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool radio_text(const char* text, int len, bool& active)
+	NUKLEUS_NODISCARD bool radio_text_in_place(const char* text, int len, bool& active)
 	{
 		return nk_radio_text(&get_context(), text, len, detail::output_bool(active)) == nk_true;
 	}
 
-	[[nodiscard]] bool radio_text_align(const char* text, int len, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool radio_text_align_in_place(const char* text, int len, bool& active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_radio_text_align(&get_context(), text, len, detail::output_bool(active), widget_alignment, text_alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool option_label(const char* label, bool active)
+	NUKLEUS_NODISCARD bool option_label(const char* label, bool active)
 	{
 		return nk_option_label(&get_context(), label, active) == nk_true;
 	}
 
-	[[nodiscard]] bool option_label_align(const char* label, bool active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool option_label_align(const char* label, bool active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_option_label_align(&get_context(), label, active, widget_alignment, text_alignment) == nk_true;
 	}
 
-	[[nodiscard]] bool option_text(const char* text, int len, bool active)
+	NUKLEUS_NODISCARD bool option_text(const char* text, int len, bool active)
 	{
 		return nk_option_text(&get_context(), text, len, active) == nk_true;
 	}
 
-	[[nodiscard]] bool option_text_align(const char* text, int len, bool active, nk_flags widget_alignment, nk_flags text_alignment)
+	NUKLEUS_NODISCARD bool option_text_align(const char* text, int len, bool active, nk_flags widget_alignment, nk_flags text_alignment)
 	{
 		return nk_option_text_align(&get_context(), text,  len, active, widget_alignment, text_alignment) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Selectable
@@ -4739,67 +5187,67 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] bool selectable_label(const char* str, nk_flags align, bool& value)
+	NUKLEUS_NODISCARD bool selectable_label_in_place(const char* str, nk_flags align, bool& value)
 	{
 		return nk_selectable_label(&get_context(), str, align, detail::output_bool(value)) == nk_true;
 	}
 
-	[[nodiscard]] bool selectable_text(const char* str, int len, nk_flags align, bool& value)
+	NUKLEUS_NODISCARD bool selectable_text_in_place(const char* str, int len, nk_flags align, bool& value)
 	{
 		return nk_selectable_text(&get_context(), str, len, align, detail::output_bool(value));
 	}
 
-	[[nodiscard]] bool selectable_image_label(nk::image img, const char* str, nk_flags align, bool& value)
+	NUKLEUS_NODISCARD bool selectable_image_label_in_place(nk::image img, const char* str, nk_flags align, bool& value)
 	{
 		return nk_selectable_image_label(&get_context(), img, str, align, detail::output_bool(value));
 	}
 
-	[[nodiscard]] bool selectable_image_text(nk::image img, const char* str, int len, nk_flags align, bool& value)
+	NUKLEUS_NODISCARD bool selectable_image_text_in_place(nk::image img, const char* str, int len, nk_flags align, bool& value)
 	{
 		return nk_selectable_image_text(&get_context(), img, str, len, align, detail::output_bool(value));
 	}
 
-	[[nodiscard]] bool selectable_symbol_label(symbol_type symbol, const char* str, nk_flags align, bool& value)
+	NUKLEUS_NODISCARD bool selectable_symbol_label_in_place(symbol_type symbol, const char* str, nk_flags align, bool& value)
 	{
 		return nk_selectable_symbol_label(&get_context(), symbol, str, align, detail::output_bool(value));
 	}
 
-	[[nodiscard]] bool selectable_symbol_text(symbol_type symbol, const char* str, int len, nk_flags align, bool& value)
+	NUKLEUS_NODISCARD bool selectable_symbol_text_in_place(symbol_type symbol, const char* str, int len, nk_flags align, bool& value)
 	{
 		return nk_selectable_symbol_text(&get_context(), symbol, str, len, align, detail::output_bool(value));
 	}
 
-	[[nodiscard]] bool select_label(const char* str, nk_flags align, bool value)
+	NUKLEUS_NODISCARD bool selectable_label(const char* str, nk_flags align, bool value)
 	{
 		return nk_select_label(&get_context(), str, align, value) == nk_true;
 	}
 
-	[[nodiscard]] bool select_text(const char* str, int len, nk_flags align, bool value)
+	NUKLEUS_NODISCARD bool selectable_text(const char* str, int len, nk_flags align, bool value)
 	{
 		return nk_select_text(&get_context(), str, len, align, value) == nk_true;
 	}
 
-	[[nodiscard]] bool select_image_label(nk::image img, const char* str, nk_flags align, bool value)
+	NUKLEUS_NODISCARD bool selectable_image_label(nk::image img, const char* str, nk_flags align, bool value)
 	{
 		return nk_select_image_label(&get_context(), img, str, align, value) == nk_true;
 	}
 
-	[[nodiscard]] bool select_image_text(nk::image img, const char* str, int len, nk_flags align, bool value)
+	NUKLEUS_NODISCARD bool selectable_image_text(nk::image img, const char* str, int len, nk_flags align, bool value)
 	{
 		return nk_select_image_text(&get_context(), img, str, len, align, value) == nk_true;
 	}
 
-	[[nodiscard]] bool select_symbol_label(symbol_type symbol, const char* str, nk_flags align, bool value)
+	NUKLEUS_NODISCARD bool selectable_symbol_label(symbol_type symbol, const char* str, nk_flags align, bool value)
 	{
 		return nk_select_symbol_label(&get_context(), symbol, str, align, value) == nk_true;
 	}
 
-	[[nodiscard]] bool select_symbol_text(symbol_type symbol, const char* str, int len, nk_flags align, bool value)
+	NUKLEUS_NODISCARD bool selectable_symbol_text(symbol_type symbol, const char* str, int len, nk_flags align, bool value)
 	{
 		return nk_select_symbol_text(&get_context(), symbol, str, len, align, value) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Slider
@@ -4807,27 +5255,27 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] float slide(float min, float value, float max, float step)
+	NUKLEUS_NODISCARD float slider(float min, float value, float max, float step)
 	{
 		return nk_slide_float(&get_context(), min, value, max, step);
 	}
 
-	[[nodiscard]] int slide(int min, int value, int max, int step)
+	NUKLEUS_NODISCARD int slider(int min, int value, int max, int step)
 	{
 		return nk_slide_int(&get_context(), min, value, max, step);
 	}
 
-	[[nodiscard]] bool slider(float min, float& value, float max, float step)
+	NUKLEUS_NODISCARD bool slider_in_place(float min, float& value, float max, float step)
 	{
-		return nk_slider_float(&get_context(), min, &value, max, step);
+		return nk_slider_float(&get_context(), min, &value, max, step) == nk_true;
 	}
 
-	[[nodiscard]] bool slider(int min, int& value, int max, int step)
+	NUKLEUS_NODISCARD bool slider_in_place(int min, int& value, int max, int step)
 	{
-		return nk_slider_int(&get_context(), min, &value, max, step);
+		return nk_slider_int(&get_context(), min, &value, max, step) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Knob
@@ -4835,17 +5283,17 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] bool knob(float min, float& value, float max, float step, heading zero_direction, float dead_zone_degrees)
+	NUKLEUS_NODISCARD bool knob_in_place(float min, float& value, float max, float step, heading zero_direction, float dead_zone_degrees)
 	{
 		return nk_knob_float(&get_context(), min, &value, max, step, zero_direction, dead_zone_degrees) == nk_true;
 	}
 
-	[[nodiscard]] bool knob(int min, int& value, int max, int step, enum nk_heading zero_direction, float dead_zone_degrees)
+	NUKLEUS_NODISCARD bool knob_in_place(int min, int& value, int max, int step, heading zero_direction, float dead_zone_degrees)
 	{
 		return nk_knob_int(&get_context(), min, &value, max, step, zero_direction, dead_zone_degrees) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Progress Bar
@@ -4853,17 +5301,17 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] nk_bool progress(nk_size& cur, nk_size max, bool modifyable)
+	NUKLEUS_NODISCARD bool progress_bar_in_place(nk_size& cur, nk_size max, bool modifyable)
 	{
 		return nk_progress(&get_context(), &cur, max, modifyable) == nk_true;
 	}
 
-	[[nodiscard]] nk_size prog(nk_size cur, nk_size max, bool modifyable)
+	NUKLEUS_NODISCARD nk_size progress_bar(nk_size cur, nk_size max, bool modifyable)
 	{
 		return nk_prog(&get_context(), cur, max, modifyable);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Color Picker
@@ -4871,20 +5319,25 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] colorf color_picker(colorf col, color_format fmt)
+	NUKLEUS_NODISCARD colorf color_picker(colorf col, color_format fmt)
 	{
 		return nk_color_picker(&get_context(), col, fmt);
 	}
 
-	[[nodiscard]] bool color_pick(colorf& col, color_format fmt)
+	NUKLEUS_NODISCARD bool color_picker_in_place(nk_colorf& col, color_format fmt)
 	{
-		struct nk_colorf c{};
-		bool result = nk_color_pick(&get_context(), &c, fmt) == nk_true;
+		return nk_color_pick(&get_context(), &col, fmt) == nk_true;
+	}
+
+	NUKLEUS_NODISCARD bool color_picker_in_place(colorf& col, color_format fmt)
+	{
+		auto c = static_cast<nk_colorf>(col);
+		const bool result = color_picker_in_place(c, fmt);
 		col = c;
 		return result;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Properties
@@ -4900,6 +5353,7 @@ public:
 	 * a increment value that will be added or subtracted if either the increment
 	 * decrement button is clicked. Finally there is a value for increment per pixel
 	 * dragged that is added or subtracted from the value.
+	 *
 	 * @{
 	 */
 
@@ -4912,23 +5366,23 @@ public:
 	 * @param step Value change on increment and decrement button.
 	 * @param inc_per_pixel Value change per pixel on dragging.
 	 */
-	void property(const char* name, int min, int& val, int max, int step = 1, float inc_per_pixel = 1.0f)
+	void property_in_place(const char* name, int min, int& val, int max, int step = 1, float inc_per_pixel = 1.0f)
 	{
 		nk_property_int(&get_context(), name, min, &val, max, step, inc_per_pixel);
 	}
 
 	/**
-	 * @copydoc property(const char*, int, int&, int, int, float)
+	 * @copydoc property_in_place(const char*, int, int&, int, int, float)
 	 */
-	void property(const char* name, float min, float& val, float max, float step = 1.0f, float inc_per_pixel = 1.0f)
+	void property_in_place(const char* name, float min, float& val, float max, float step = 1.0f, float inc_per_pixel = 1.0f)
 	{
 		nk_property_float(&get_context(), name, min, &val, max, step, inc_per_pixel);
 	}
 
 	/**
-	 * @copydoc property(const char*, int, int&, int, int, float)
+	 * @copydoc property_in_place(const char*, int, int&, int, int, float)
 	 */
-	void property(const char* name, double min, double& val, double max, double step = 1.0, float inc_per_pixel = 1.0f)
+	void property_in_place(const char* name, double min, double& val, double max, double step = 1.0, float inc_per_pixel = 1.0f)
 	{
 		nk_property_double(&get_context(), name, min, &val, max, step, inc_per_pixel);
 	}
@@ -4943,28 +5397,28 @@ public:
 	 * @param inc_per_pixel Value change per pixel on dragging.
 	 * @return New value, after modification.
 	 */
-	[[nodiscard]] int propertyi(const char* name, int min, int val, int max, int step = 1, float inc_per_pixel = 1.0f)
+	NUKLEUS_NODISCARD int property(const char* name, int min, int val, int max, int step = 1, float inc_per_pixel = 1.0f)
 	{
 		return nk_propertyi(&get_context(), name, min, val, max, step, inc_per_pixel);
 	}
 
 	/**
-	 * @copydoc propertyi
+	 * @copydoc property(const char* name, int min, int val, int max, int step = 1, float inc_per_pixel)
 	 */
-	[[nodiscard]] float propertyf(const char* name, float min, float val, float max, float step = 1.0f, float inc_per_pixel = 1.0f)
+	NUKLEUS_NODISCARD float property(const char* name, float min, float val, float max, float step = 1.0f, float inc_per_pixel = 1.0f)
 	{
 		return nk_propertyf(&get_context(), name, min, val, max, step, inc_per_pixel);
 	}
 
 	/**
-	 * @copydoc propertyi
+	 * @copydoc property(const char* name, int min, int val, int max, int step = 1, float inc_per_pixel)
 	 */
-	[[nodiscard]] double propertyd(const char* name, double min, double val, double max, double step = 1.0, float inc_per_pixel = 1.0f)
+	NUKLEUS_NODISCARD double property(const char* name, double min, double val, double max, double step = 1.0, float inc_per_pixel = 1.0f)
 	{
 		return nk_propertyd(&get_context(), name, min, val, max, step, inc_per_pixel);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Text Edit
@@ -4972,17 +5426,17 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] nk_flags edit_string(nk_flags flags, char* buffer, int& len, int max, nk_plugin_filter filter)
+	NUKLEUS_NODISCARD nk_flags edit_string(nk_flags flags, char* buffer, int& len, int max, nk_plugin_filter filter)
 	{
 		return nk_edit_string(&get_context(), flags, buffer, &len, max, filter);
 	}
 
-	[[nodiscard]] nk_flags edit_string_zero_terminated(nk_flags flags, char* buffer, int max, nk_plugin_filter filter)
+	NUKLEUS_NODISCARD nk_flags edit_string_zero_terminated(nk_flags flags, char* buffer, int max, nk_plugin_filter filter)
 	{
 		return nk_edit_string_zero_terminated(&get_context(), flags, buffer, max, filter);
 	}
 
-	[[nodiscard]] nk_flags edit_buffer(nk_flags flags, nk_text_edit& edit, nk_plugin_filter filter)
+	NUKLEUS_NODISCARD nk_flags edit_buffer(nk_flags flags, nk_text_edit& edit, nk_plugin_filter filter)
 	{
 		return nk_edit_buffer(&get_context(), flags, &edit, filter);
 	}
@@ -4997,7 +5451,7 @@ public:
 		nk_edit_unfocus(&get_context());
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Chart
@@ -5010,20 +5464,20 @@ public:
 	 * mode version `plot` and `plot_function` you either provide
 	 * an array or a callback to call to handle drawing the graph.
 	 *
-	 * For the immediate mode version you start by calling `scoped_chart`
+	 * For the immediate mode version you start by calling `chart_scoped`
 	 * and need to provide min and max values for scaling on the Y-axis.
 	 * and then call `push` on it to push values into the chart.
 	 * @{
 	 */
 
-	[[nodiscard]] chart scoped_chart(nk_chart_type type, int count, float min, float max)
+	NUKLEUS_NODISCARD chart chart_scoped(nk_chart_type type, int count, float min, float max)
 	{
 		return chart(
 			get_context(),
 			nk_chart_begin(&get_context(), type, count, min, max) == nk_true ? &nk_chart_end : nullptr);
 	}
 
-	[[nodiscard]] chart scoped_chart_colored(nk_chart_type type, color col, color highlight, int count, float min, float max)
+	NUKLEUS_NODISCARD chart chart_colored_scoped(nk_chart_type type, color col, color highlight, int count, float min, float max)
 	{
 		return chart(
 			get_context(),
@@ -5040,17 +5494,18 @@ public:
 		nk_plot_function(&get_context(), type, userdata, value_getter, count, offset);
 	}
 
+	// F must satisfy: float (int index)
 	template <typename F>
-	void plot_function(nk_chart_type type, F&& f, int count, int offset) // TODO needs test
+	void plot_function(nk_chart_type type, F&& f, int count, int offset) // TODO needs test and a trait
 	{
-		static_assert(!is_pointer_v<remove_reference_t<F>>, "pass a function, not a function pointer");
+		static_assert(!is_pointer<remove_reference_t<F>>::value, "pass a function, not a function pointer");
 		auto value_getter = [](void* userdata, int index) -> float {
 			return (*static_cast<remove_reference_t<F>*>(userdata))(index);
 		};
 		plot_function(type, static_cast<void*>(&f), value_getter, count, offset);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Popup
@@ -5058,19 +5513,89 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] popup scoped_popup(nk_popup_type type, const char* title, nk_flags flags, rect<float> bounds)
+	NUKLEUS_NODISCARD popup popup_scoped(nk_popup_type type, const char* title, nk_flags flags, rect<float> bounds)
 	{
 		return popup(
 			get_context(),
 			nk_popup_begin(&get_context(), type, title, flags, bounds) == nk_true ? &nk_popup_end : nullptr);
 	}
 
-	///@}
+	/// @}
+
+	/**
+	 * @name Combobox (whole widget)
+	 * UNDOCUMENTED
+	 * @{
+	 */
+
+	NUKLEUS_NODISCARD int combobox(const char* const* items, int count, int selected, int item_height, vec2<float> size)
+	{
+		return nk_combo(&get_context(), items, count, selected, item_height, size);
+	}
+
+	NUKLEUS_NODISCARD int combobox_string(const char* items_separated_by_zeros, int selected, int count, int item_height, vec2<float> size)
+	{
+		return nk_combo_string(&get_context(), items_separated_by_zeros, selected, count, item_height, size);
+	}
+
+	NUKLEUS_NODISCARD int combobox_separator(const char* items_separated_by_separator, int separator, int selected, int count, int item_height, vec2<float> size)
+	{
+		return nk_combo_separator(&get_context(), items_separated_by_separator, separator, selected, count, item_height, size);
+	}
+
+	NUKLEUS_NODISCARD int combobox_callback(void (*item_getter)(void*, int, const char**), void* userdata, int selected, int count, int item_height, vec2<float> size)
+	{
+		return nk_combo_callback(&get_context(), item_getter, userdata, selected, count, item_height, size);
+	}
+
+	template <typename F> // F has to have the form const char* (int index)
+	NUKLEUS_NODISCARD int combobox_callback(F item_getter, int selected, int count, int item_height, vec2<float> size)
+	{
+		auto func = [](void* data, int index, const char** result)
+		{
+			*result = (*static_cast<F*>(data))(index); // TODO static_assert is_invokable
+		};
+		return combobox_callback(func, &item_getter, selected, count, item_height, size);
+	}
+
+	void combobox_in_place(const char* const* items, int count, int& selected, int item_height, vec2<float> size)
+	{
+		nk_combobox(&get_context(), items, count, &selected, item_height, size);
+	}
+
+	void combobox_string_in_place(const char* items_separated_by_zeros, int& selected, int count, int item_height, vec2<float> size)
+	{
+		nk_combobox_string(&get_context(), items_separated_by_zeros, &selected, count, item_height, size);
+	}
+
+	void combobox_separator_in_place(const char* items_separated_by_separator, int separator, int& selected, int count, int item_height, vec2<float> size)
+	{
+		nk_combobox_separator(&get_context(), items_separated_by_separator, separator, &selected, count, item_height, size);
+	}
+
+	void combobox_callback_in_place(void (*item_getter)(void*, int, const char**), void* userdata, int& selected, int count, int item_height, vec2<float> size)
+	{
+		nk_combobox_callback(&get_context(), item_getter, userdata, &selected, count, item_height, size);
+	}
+
+	template <typename F> // F has to have the form const char* (int index)
+	void combobox_callback_in_place(F item_getter, int& selected, int count, int item_height, vec2<float> size)
+	{
+		auto func = [](void* data, int index, const char** result)
+		{
+			*result = (*static_cast<F*>(data))(index); // TODO static_assert is_invokable
+		};
+		combobox_callback_in_place(func, &item_getter, selected, count, item_height, size);
+	}
+
+	/// @}
 
 private:
-	[[nodiscard]] combobox scoped_combo_internal(nk_bool result)
+	// need to use class to disambiguate between a function and a type
+	NUKLEUS_NODISCARD class combobox combo_internal_scoped(nk_bool result)
 	{
-		return combobox(get_context(), result == nk_true ? &nk_combo_end : nullptr);
+		using return_type = class combobox;
+		return return_type(get_context(), result == nk_true ? &nk_combo_end : nullptr);
 	}
 
 public:
@@ -5080,52 +5605,52 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] combobox scoped_combo_text(const char* selected, int len, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_text_scoped(const char* selected, int len, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_text(&get_context(), selected, len, size));
+		return combo_internal_scoped(nk_combo_begin_text(&get_context(), selected, len, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_label(const char* selected, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_label_scoped(const char* selected, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_label(&get_context(), selected, size));
+		return combo_internal_scoped(nk_combo_begin_label(&get_context(), selected, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_color(color col, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_color_scoped(color col, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_color(&get_context(), col, size));
+		return combo_internal_scoped(nk_combo_begin_color(&get_context(), col, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_symbol(nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_symbol_scoped(nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_symbol(&get_context(), symbol, size));
+		return combo_internal_scoped(nk_combo_begin_symbol(&get_context(), symbol, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_symbol_label(const char* selected, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_symbol_label_scoped(const char* selected, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_symbol_label(&get_context(), selected, symbol, size));
+		return combo_internal_scoped(nk_combo_begin_symbol_label(&get_context(), selected, symbol, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_symbol_text(const char* selected, int len, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_symbol_text_scoped(const char* selected, int len, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_symbol_text(&get_context(), selected, len, symbol, size));
+		return combo_internal_scoped(nk_combo_begin_symbol_text(&get_context(), selected, len, symbol, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_image(nk::image img, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_image_scoped(nk::image img, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_image(&get_context(), img, size));
+		return combo_internal_scoped(nk_combo_begin_image(&get_context(), img, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_image_label(const char* selected, nk::image img, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_image_label_scoped(const char* selected, nk::image img, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_image_label(&get_context(), selected, img, size));
+		return combo_internal_scoped(nk_combo_begin_image_label(&get_context(), selected, img, size));
 	}
 
-	[[nodiscard]] combobox scoped_combo_image_text(const char* selected, int len, nk::image img, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_image_text_scoped(const char* selected, int len, nk::image img, vec2<float> size)
 	{
-		return scoped_combo_internal(nk_combo_begin_image_text(&get_context(), selected, len, img, size));
+		return combo_internal_scoped(nk_combo_begin_image_text(&get_context(), selected, len, img, size));
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Contextual
@@ -5133,14 +5658,14 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] contextual scoped_contextual(nk_flags flags, vec2<float> size, rect<float> trigger_bounds)
+	NUKLEUS_NODISCARD contextual contextual_scoped(nk_flags flags, vec2<float> size, rect<float> trigger_bounds)
 	{
 		return contextual(
 			get_context(),
 			nk_contextual_begin(&get_context(), flags, size, trigger_bounds) == nk_true ? &nk_contextual_end : nullptr);
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Tooltip
@@ -5154,6 +5679,10 @@ public:
 	}
 
 #ifdef NK_INCLUDE_STANDARD_VARARGS
+	/**
+	 * @brief Requires `NK_INCLUDE_STANDARD_VARARGS`.
+	 * @param fmt format string.
+	 */
 	void tooltipf(NK_PRINTF_FORMAT_STRING const char* fmt, ...) NK_PRINTF_VARARG_FUNC(2)
 	{
 		va_list args;
@@ -5162,21 +5691,26 @@ public:
 		va_end(args);
 	}
 
+	/**
+	 * @brief Requires `NK_INCLUDE_STANDARD_VARARGS`.
+	 * @param fmt format string.
+	 * @param args variadic arguments list
+	 */
 	void tooltipfv(NK_PRINTF_FORMAT_STRING const char* fmt, va_list args) NK_PRINTF_VALIST_FUNC(2)
 	{
 		nk_tooltipfv(&get_context(), fmt, args);
 	}
 #endif
 
-	scope_guard scoped_tooltip(float width)
+	scope_guard tooltip_scoped(float width)
 	{
 		return scope_guard(get_context(), nk_tooltip_begin(&get_context(), width) == nk_true ? &nk_tooltip_end : nullptr);
 	}
 
-	///@}
+	/// @}
 
 private:
-	[[nodiscard]] menu scoped_menu_internal(nk_bool result)
+	NUKLEUS_NODISCARD menu menu_internal_scoped(nk_bool result)
 	{
 		return menu(get_context(), result == nk_true ? &nk_menu_end : nullptr);
 	}
@@ -5188,53 +5722,53 @@ public:
 	 * @{
 	 */
 
-	[[nodiscard]] scope_guard scoped_menubar()
+	NUKLEUS_NODISCARD scope_guard menubar_scoped()
 	{
 		nk_menubar_begin(&get_context()); // this one returns void - always succeeds
 		return scope_guard(get_context(), &nk_menubar_end);
 	}
 
-	[[nodiscard]] menu menu_begin_text(const char* text, int len, nk_flags alignment, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_text_scoped(const char* text, int len, nk_flags alignment, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_text(&get_context(), text, len, alignment, size));
+		return menu_internal_scoped(nk_menu_begin_text(&get_context(), text, len, alignment, size));
 	}
 
-	[[nodiscard]] menu menu_begin_label(const char* label, nk_flags alignment, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_label_scoped(const char* label, nk_flags alignment, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_label(&get_context(), label, alignment, size));
+		return menu_internal_scoped(nk_menu_begin_label(&get_context(), label, alignment, size));
 	}
 
-	[[nodiscard]] menu menu_begin_image(const char* id, nk::image img, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_image_scoped(const char* id, nk::image img, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_image(&get_context(), id, img, size));
+		return menu_internal_scoped(nk_menu_begin_image(&get_context(), id, img, size));
 	}
 
-	[[nodiscard]] menu menu_begin_image_text(const char* text, int len, nk_flags alignment, nk::image img, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_image_text_scoped(const char* text, int len, nk_flags alignment, nk::image img, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_image_text(&get_context(), text, len, alignment, img, size));
+		return menu_internal_scoped(nk_menu_begin_image_text(&get_context(), text, len, alignment, img, size));
 	}
 
-	[[nodiscard]] menu menu_begin_image_label(const char* label, nk_flags alignment, nk::image img, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_image_label_scoped(const char* label, nk_flags alignment, nk::image img, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_image_label(&get_context(), label, alignment, img, size));
+		return menu_internal_scoped(nk_menu_begin_image_label(&get_context(), label, alignment, img, size));
 	}
 
-	[[nodiscard]] menu menu_begin_symbol(const char* id, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_symbol_scoped(const char* id, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_symbol(&get_context(), id, symbol, size));
+		return menu_internal_scoped(nk_menu_begin_symbol(&get_context(), id, symbol, size));
 	}
 
-	[[nodiscard]] menu menu_begin_symbol_text(const char* text, int len, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_symbol_text_scoped(const char* text, int len, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_symbol_text(&get_context(), text, len, alignment, symbol, size));
+		return menu_internal_scoped(nk_menu_begin_symbol_text(&get_context(), text, len, alignment, symbol, size));
 	}
 
-	[[nodiscard]] menu menu_begin_symbol_label(const char* label, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_symbol_label_scoped(const char* label, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
 	{
-		return scoped_menu_internal(nk_menu_begin_symbol_label(&get_context(), label, alignment, symbol, size));
+		return menu_internal_scoped(nk_menu_begin_symbol_label(&get_context(), label, alignment, symbol, size));
 	}
 
-	///@}
+	/// @}
 
 private:
 	bool m_valid;
@@ -5255,15 +5789,28 @@ public:
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
 	/**
-	 * @brief Initialize context with default standard library allocator.
+	 * @brief Initialize context with default standard library allocator. Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
 	 * @details Should be used if you don't want to be bothered with memory management in nuklear.
 	 * @param user_font Previously initialized font handle.
 	 * @return Context object - always check @ref is_valid after the call.
 	 */
-	static context init_default(const nk_user_font& user_font)
+	NUKLEUS_NODISCARD static context init_default(const nk_user_font& user_font)
 	{
 		context ctx;
 		ctx.m_valid = nk_init_default(&ctx.m_ctx, &user_font) == nk_true;
+		return ctx;
+	}
+
+	/**
+	 * @brief Initialize context with default standard library allocator. Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
+	 * @details Should be used if you don't want to be bothered with memory management in nuklear.
+	 * @return Context object - always check @ref is_valid after the call.
+	 * @attention This overload initializes context without any font. You must call @ref style_set_font afterward.
+	 */
+	NUKLEUS_NODISCARD static context init_default()
+	{
+		context ctx;
+		ctx.m_valid = nk_init_default(&ctx.m_ctx, nullptr) == nk_true;
 		return ctx;
 	}
 #endif
@@ -5279,11 +5826,11 @@ public:
 	 * @param user_font Previously initialized font handle.
 	 * @return Context object - always check @ref is_valid after the call.
 	 *
-	 * @attention Make sure the passed memory block is aligned correctly for `nk_draw_commands`.
-	 * TODO needs more specifics.
+	 * @attention Make sure the passed memory block is aligned correctly for `nk_draw_command`s.
 	 */
-	static context init_fixed(void* memory, nk_size size, const nk_user_font& user_font)
+	NUKLEUS_NODISCARD static context init_fixed(void* memory, nk_size size, const nk_user_font& user_font)
 	{
+		NUKLEUS_ASSERT_MSG(is_aligned<nk_draw_command>(memory), "Memory pointer must be aligned");
 		context ctx;
 		ctx.m_valid = nk_init_fixed(&ctx.m_ctx, memory, size, &user_font) == nk_true;
 		return ctx;
@@ -5297,7 +5844,7 @@ public:
 	 * @param user_font Previously initialized font handle.
 	 * @return Context object - always check @ref is_valid after the call.
 	 */
-	static context init(const nk_allocator& allocator, const nk_user_font& user_font)
+	NUKLEUS_NODISCARD static context init(const nk_allocator& allocator, const nk_user_font& user_font)
 	{
 		context ctx;
 		ctx.m_valid = nk_init(&ctx.m_ctx, &allocator, &user_font) == nk_true;
@@ -5313,7 +5860,7 @@ public:
 	 * @param user_font Previously initialized font handle.
 	 * @return Context object - always check @ref is_valid after the call.
 	 */
-	static context init_custom(nk_buffer& cmds, nk_buffer& pool, const nk_user_font& user_font)
+	NUKLEUS_NODISCARD static context init_custom(nk_buffer& cmds, nk_buffer& pool, const nk_user_font& user_font)
 	{
 		context ctx;
 		ctx.m_valid = nk_init_custom(&ctx.m_ctx, &cmds, &pool, &user_font) == nk_true;
@@ -5365,23 +5912,25 @@ public:
 	 */
 	void clear()
 	{
-		NK_ASSERT(m_valid);
+		NUKLEUS_ASSERT(m_valid);
 		nk_clear(&m_ctx);
 	}
 
 #ifdef NK_INCLUDE_COMMAND_USERDATA
 	/**
-	 * @brief Set the userdata passed down into each draw command.
+	 * @brief Set the userdata passed down into each draw command. Requires `NK_INCLUDE_COMMAND_USERDATA`.
+	 * @param handle the value to set
 	 */
 	void set_user_data(nk_handle handle)
 	{
 		nk_set_user_data(&m_ctx, handle);
 	}
 #endif
+	explicit operator bool() && noexcept = delete;
 	/**
 	 * @copydoc is_valid
 	 */
-	explicit operator bool() const noexcept
+	explicit operator bool() const & noexcept
 	{
 		return is_valid();
 	}
@@ -5390,7 +5939,7 @@ public:
 	 * @brief Check the state of this object.
 	 * @return Whether initialization was successful.
 	 */
-	[[nodiscard]] bool is_valid() const { return m_valid; }
+	NUKLEUS_NODISCARD bool is_valid() const noexcept { return m_valid; }
 
 	/**
 	 * @brief Obtain a reference to internal context object.
@@ -5409,13 +5958,13 @@ public:
 	 * @details After the call, @ref is_valid will return false.
 	 * @return Nuklear's context object with associated resources (if any).
 	 */
-	[[nodiscard]] nk_context release()
+	NUKLEUS_NODISCARD nk_context release()
 	{
 		m_valid = false;
 		return exchange(m_ctx, nk_context{});
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Input
@@ -5427,7 +5976,7 @@ public:
 	 * @brief Start scoped input. `nk_input_end` is called automatically at the end of scope.
 	 * @return input scope guard object, offering access to input functions
 	 */
-	[[nodiscard]] event_input scoped_input() &
+	NUKLEUS_NODISCARD event_input input_scoped() &
 	{
 		nk_input_begin(&m_ctx);
 		return event_input(m_ctx, nk_input_end);
@@ -5513,7 +6062,7 @@ public:
 		return nk_input_is_key_down(&m_ctx.input, key) == nk_true;
 	}
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Drawing
@@ -5531,6 +6080,7 @@ public:
 	 * filled and stroked rectangles, circles, text, lines, triangles and scissors.
 	 * As soon as this criterion is met you can iterate over each draw command
 	 * and execute each draw command in a interpreter like fashion.
+	 *
 	 * @{
 	 */
 
@@ -5539,7 +6089,7 @@ public:
 	 * @return range object which supports C++11 range-based loops
 	 * @details example use: `for (const nk_command& cmd : ctx.commands())`
 	 */
-	[[nodiscard]] range<command_iterator> commands()
+	NUKLEUS_NODISCARD range<command_iterator> commands()
 	{
 		return {
 			command_iterator(m_ctx, nk__begin(&m_ctx)),
@@ -5552,34 +6102,50 @@ public:
 	 * @brief Converts all internal draw commands into vertex draw commands and fills
 	 * three buffers with vertexes, vertex draw commands and vertex indices. The vertex format
 	 * as well as some other configuration values have to be configured by filling out a
-	 * `nk_convert_config` struct.
+	 * `nk_convert_config` struct. Requires `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`.
 	 * @param cmds previously initialized buffer to hold converted vertex draw commands
 	 * @param vertices previously initialized buffer to hold all produced vertices
 	 * @param elements previously initialized buffer to hold all produced vertex indices
 	 * @param config filled out `nk_config` struct to configure the conversion process
 	 * @return one of `nk_convert_result` error codes
 	 */
-	nk_convert_result convert(nk_buffer* cmds, nk_buffer* vertices, nk_buffer* elements, const nk_convert_config& config)
+	nk_convert_result convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
 	{
-		return static_cast<nk_convert_result>(nk_convert(&m_ctx, cmds, vertices, elements, &config));
+		return static_cast<nk_convert_result>(nk_convert(&m_ctx, &cmds, &vertices, &elements, &config));
 	}
 
 	/**
-	 * @brief get the list of Nuklear's vertex drawing commands
-	 * @param buf previously by `nk_convert` filled out vertex draw command buffer
-	 * @return range object which supports C++11 range-based loops
-	 * @details example use: `for (const nk_draw_command& cmd : ctx.draw_commands())`
+	 * @copydoc convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
 	 */
-	[[nodiscard]] range<draw_command_iterator> draw_commands(const nk_buffer* buf) const
+	nk_convert_result convert(nk::buffer& cmds, nk::buffer& vertices, nk::buffer& elements, const nk_convert_config& config)
+	{
+		return convert(cmds.get(), vertices.get(), elements.get(), config);
+	}
+
+	/**
+	 * @brief Get the list of Nuklear's vertex drawing commands. Requires `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`.
+	 * @param buf vertex draw command buffer filled previously by @ref convert
+	 * @return range object which supports C++11 range-based loops
+	 * @details example use: `for (const nk_draw_command& cmd : ctx.draw_commands(buf))`
+	 */
+	NUKLEUS_NODISCARD range<draw_command_iterator> draw_commands(const nk_buffer& buf) const
 	{
 		return {
-			draw_command_iterator(m_ctx, buf, nk__draw_begin(&m_ctx, buf)),
-			draw_command_iterator(m_ctx, buf, nullptr)
+			draw_command_iterator(m_ctx, &buf, nk__draw_begin(&m_ctx, &buf)),
+			draw_command_iterator(m_ctx, &buf, nullptr)
 		};
+	}
+
+	/**
+	 * @copydoc draw_commands(const nk_buffer& buf) const
+	 */
+	NUKLEUS_NODISCARD range<draw_command_iterator> draw_commands(const nk::buffer& buf) const
+	{
+		return draw_commands(buf.get());
 	}
 #endif
 
-	///@}
+	/// @}
 
 	/**
 	 * @name Window
@@ -5593,7 +6159,7 @@ public:
 	 * @return Blank window object.
 	 * @details Normally you should not need to use this function.
 	 */
-	[[nodiscard]] window blank_window()
+	NUKLEUS_NODISCARD window window_blank()
 	{
 		return window::create_blank(m_ctx);
 	}
@@ -5605,9 +6171,9 @@ public:
 	 * @param bounds Initial position and window size. However if you do not define `NK_WINDOW_SCALABLE` or `NK_WINDOW_MOVABLE` you can set window position and size every frame.
 	 * @param flags Window flags defined in the nk_panel_flags section with a number of different window behaviors.
 	 * @return Scope guard for the window, that should be immediately checked.
-	 * @details Example use: `if (auto window = ctx.scoped_window(...); window)`.
+	 * @details Example use: `if (auto window = ctx.window_scoped(...); window)`.
 	 */
-	[[nodiscard]] window scoped_window(const char* title, rect<float> bounds, nk_flags flags)
+	NUKLEUS_NODISCARD window window_scoped(const char* title, rect<float> bounds, nk_flags flags)
 	{
 		return window::create(m_ctx, nk_begin(&m_ctx, title, bounds, flags) == nk_true);
 	}
@@ -5619,9 +6185,9 @@ public:
 	 * @param bounds Initial position and window size. However if you do not define `NK_WINDOW_SCALABLE` or `NK_WINDOW_MOVABLE` you can set window position and size every frame.
 	 * @param flags Window flags defined in the nk_panel_flags section with a number of different window behaviors.
 	 * @return Scope guard for the window, that should be immediately checked.
-	 * @details Example use: `if (auto window = ctx.scoped_window_titled(...); window)`.
+	 * @details Example use: `if (auto window = ctx.window_titled_scoped(...); window)`.
 	 */
-	[[nodiscard]] window scoped_window_titled(const char* name, const char* title, rect<float> bounds, nk_flags flags)
+	NUKLEUS_NODISCARD window window_titled_scoped(const char* name, const char* title, rect<float> bounds, nk_flags flags)
 	{
 		return window::create(m_ctx, nk_begin_titled(&m_ctx, name, title, bounds, flags) == nk_true);
 	}
@@ -5629,7 +6195,7 @@ public:
 	/**
 	 * @copydoc window::window_find
 	 */
-	[[nodiscard]] nk_window* window_find(const char* name)
+	NUKLEUS_NODISCARD nk_window* window_find(const char* name) const
 	{
 		return nk_window_find(&m_ctx, name);
 	}
@@ -5637,7 +6203,7 @@ public:
 	/**
 	 * @copydoc window::window_is_collapsed
 	 */
-	[[nodiscard]] bool window_is_collapsed(const char* name)
+	NUKLEUS_NODISCARD bool window_is_collapsed(const char* name) const
 	{
 		return nk_window_is_collapsed(&m_ctx, name) == nk_true;
 	}
@@ -5645,7 +6211,7 @@ public:
 	/**
 	 * @copydoc window::window_is_closed
 	 */
-	[[nodiscard]] bool window_is_closed(const char* name)
+	NUKLEUS_NODISCARD bool window_is_closed(const char* name) const
 	{
 		return nk_window_is_closed(&m_ctx, name) == nk_true;
 	}
@@ -5653,7 +6219,7 @@ public:
 	/**
 	 * @copydoc window::window_is_hidden
 	 */
-	[[nodiscard]] bool window_is_hidden(const char* name)
+	NUKLEUS_NODISCARD bool window_is_hidden(const char* name) const
 	{
 		return nk_window_is_hidden(&m_ctx, name) == nk_true;
 	}
@@ -5661,7 +6227,7 @@ public:
 	/**
 	 * @copydoc window::window_is_active
 	 */
-	[[nodiscard]] bool window_is_active(const char* name)
+	NUKLEUS_NODISCARD bool window_is_active(const char* name) const
 	{
 		return nk_window_is_active(&m_ctx, name) == nk_true;
 	}
@@ -5669,7 +6235,7 @@ public:
 	/**
 	 * @copydoc window::window_is_any_hovered
 	 */
-	[[nodiscard]] bool window_is_any_hovered()
+	NUKLEUS_NODISCARD bool window_is_any_hovered() const
 	{
 		return nk_window_is_any_hovered(&m_ctx) == nk_true;
 	}
@@ -5677,7 +6243,7 @@ public:
 	/**
 	 * @copydoc window::item_is_any_active
 	 */
-	[[nodiscard]] bool item_is_any_active()
+	NUKLEUS_NODISCARD bool item_is_any_active() const
 	{
 		return nk_item_is_any_active(&m_ctx) == nk_true;
 	}
@@ -5754,20 +6320,20 @@ public:
 		nk_window_show_if(&m_ctx, name, state, cond);
 	}
 
-	///@}
+	/// @}
 
 private:
-	[[nodiscard]] scoped_override_guard make_scoped_override(nk_bool push_result, nk_bool (*pop_func)(nk_context*))
+	NUKLEUS_NODISCARD scoped_override_guard make_override_scoped(nk_bool push_result, nk_bool (*pop_func)(nk_context*))
 	{
-		return scoped_override_guard(m_ctx, push_result ? pop_func : nullptr);
+		return scoped_override_guard(m_ctx, push_result == nk_true ? pop_func : nullptr);
 	}
 
 	void check_style_pointer(const void* p) const
 	{
 		const auto min = static_cast<const void*>(&m_ctx);
 		const auto max = static_cast<const void*>(&m_ctx + 1);
-		NK_ASSERT(min <= p);
-		NK_ASSERT(p < max);
+		NUKLEUS_ASSERT(min <= p);
+		NUKLEUS_ASSERT(p < max);
 	}
 
 public:
@@ -5777,7 +6343,8 @@ public:
 	 * How scoped overrides work:
 	 * - pass a pointer to an object within this class data
 	 * - pass a value that should override pointed object
-	 * Use get_* functions to obtain access to this data and to get their addresses.
+	 *
+	 * Use `get_*` functions to obtain access to this data and to get their addresses.
 	 * @{
 	 */
 
@@ -5806,7 +6373,7 @@ public:
 		nk_style_load_all_cursors(&m_ctx, cursors);
 	}
 
-	[[nodiscard]] static const char* style_get_color_name(nk_style_colors c)
+	NUKLEUS_NODISCARD static const char* style_get_color_name(nk_style_colors c)
 	{
 		return nk_style_get_color_by_name(c);
 	}
@@ -5816,7 +6383,7 @@ public:
 		nk_style_set_font(&m_ctx, &font);
 	}
 
-	[[nodiscard]] bool style_set_cursor(enum nk_style_cursor cursor)
+	NUKLEUS_NODISCARD bool style_set_cursor(enum nk_style_cursor cursor)
 	{
 		return nk_style_set_cursor(&m_ctx, cursor) == nk_true;
 	}
@@ -5831,73 +6398,98 @@ public:
 		nk_style_hide_cursor(&m_ctx);
 	}
 
-	[[nodiscard]] scoped_override_guard style_scoped_font(const nk_user_font& font)
+	NUKLEUS_NODISCARD scoped_override_guard style_font_scoped(const nk_user_font& font)
 	{
-		return make_scoped_override(nk_style_push_font(&m_ctx, &font), &nk_style_pop_font);
+		return make_override_scoped(nk_style_push_font(&m_ctx, &font), &nk_style_pop_font);
 	}
 
-	[[nodiscard]] scoped_override_guard style_push_float(float* p, float value)
-	{
-		check_style_pointer(p);
-		return make_scoped_override(nk_style_push_float(&m_ctx, p, value), &nk_style_pop_float);
-	}
-
-	[[nodiscard]] scoped_override_guard style_push_vec2(struct nk_vec2* p, struct nk_vec2 value)
+	NUKLEUS_NODISCARD scoped_override_guard style_override_scoped(float* p, float value)
 	{
 		check_style_pointer(p);
-		return make_scoped_override(nk_style_push_vec2(&m_ctx, p, value), &nk_style_pop_vec2);
+		return make_override_scoped(nk_style_push_float(&m_ctx, p, value), &nk_style_pop_float);
 	}
 
-	[[nodiscard]] scoped_override_guard style_push_style_item(nk_style_item* p, nk_style_item value)
+	NUKLEUS_NODISCARD scoped_override_guard style_override_scoped(struct nk_vec2* p, struct nk_vec2 value)
 	{
 		check_style_pointer(p);
-		return make_scoped_override(nk_style_push_style_item(&m_ctx, p, value), &nk_style_pop_style_item);
+		return make_override_scoped(nk_style_push_vec2(&m_ctx, p, value), &nk_style_pop_vec2);
 	}
 
-	[[nodiscard]] scoped_override_guard style_push_flags(nk_flags* p, nk_flags value)
+	NUKLEUS_NODISCARD scoped_override_guard style_override_scoped(nk_style_item* p, nk_style_item value)
 	{
 		check_style_pointer(p);
-		return make_scoped_override(nk_style_push_flags(&m_ctx, p, value), &nk_style_pop_flags);
+		return make_override_scoped(nk_style_push_style_item(&m_ctx, p, value), &nk_style_pop_style_item);
 	}
 
-	[[nodiscard]] scoped_override_guard style_push_color(nk_color* p, nk_color value)
+	NUKLEUS_NODISCARD scoped_override_guard style_override_scoped(nk_flags* p, nk_flags value)
 	{
 		check_style_pointer(p);
-		return make_scoped_override(nk_style_push_color(&m_ctx, p, value), &nk_style_pop_color);
+		return make_override_scoped(nk_style_push_flags(&m_ctx, p, value), &nk_style_pop_flags);
 	}
 
-	///@}
+	NUKLEUS_NODISCARD scoped_override_guard style_override_scoped(nk_color* p, nk_color value)
+	{
+		check_style_pointer(p);
+		return make_override_scoped(nk_style_push_color(&m_ctx, p, value), &nk_style_pop_color);
+	}
+
+	/**
+	 * @brief override a style with style (pun intended) by providing pointers to members
+	 * @tparam StyleType type of a `nk_style` member
+	 * @tparam DataType type of a member field within @p StyleType
+	 * @param style_ptr pointer-to-member of `nk_style` struct
+	 * @param field_ptr pointer-to-member of `nk_style.*style_ptr` struct
+	 * @param value value to override with (uses type_identity to block deduction which)
+	 * @details example use:
+	 * ```cpp
+	 * auto style_override = ctx.style_override_scoped(&nk_style::window, &nk_style_window::spacing, {0, 0});
+	 * ```
+	 * @note @ref type_identity_t is used to block deduction for the value parameter.
+	 * Because pointers already deduce very well, this allows to force an argument of certain type
+	 * which in turn can enable some type convertions (e.g. from `nk::rect` to `nk_rect`).
+	 * Otherwise passing `nk::rect` would result in  deduction conflict errors.
+	 */
+	template <typename StyleType, typename DataType>
+	NUKLEUS_NODISCARD scoped_override_guard style_override_scoped(
+		StyleType nk_style::* style_ptr,
+		DataType StyleType::* field_ptr,
+		type_identity_t<DataType> value)
+	{
+		return style_override_scoped(&(get_style().*style_ptr.*field_ptr), value);
+	}
+
+	/// @}
 
 	/**
 	 * @name Public fields of the context struct
 	 * @{
 	 */
 
-	nk_input& get_input() { return m_ctx.input; }
+	      nk_input& get_input()       { return m_ctx.input; }
 	const nk_input& get_input() const { return m_ctx.input; }
 
-	nk_style& get_style() { return m_ctx.style; }
+	      nk_style& get_style()       { return m_ctx.style; }
 	const nk_style& get_style() const { return m_ctx.style; }
 
-	nk_buffer& get_memory() { return m_ctx.memory; }
+	      nk_buffer& get_memory()       { return m_ctx.memory; }
 	const nk_buffer& get_memory() const { return m_ctx.memory; }
 
-	nk_clipboard& get_clipboard() { return m_ctx.clip; }
+	      nk_clipboard& get_clipboard()       { return m_ctx.clip; }
 	const nk_clipboard& get_clipboard() const { return m_ctx.clip; }
 
-	nk_flags& get_last_widget_state() { return m_ctx.last_widget_state; }
-	nk_flags get_last_widget_state() const { return m_ctx.last_widget_state; }
+	nk_flags& get_last_widget_state()       { return m_ctx.last_widget_state; }
+	nk_flags  get_last_widget_state() const { return m_ctx.last_widget_state; }
 
-	enum nk_button_behavior& get_button_behavior() { return m_ctx.button_behavior; }
-	enum nk_button_behavior get_button_behavior() const { return m_ctx.button_behavior; }
+	enum nk_button_behavior& get_button_behavior()       { return m_ctx.button_behavior; }
+	enum nk_button_behavior  get_button_behavior() const { return m_ctx.button_behavior; }
 
-	nk_configuration_stacks& get_configuration_stacks() { return m_ctx.stacks; }
+	      nk_configuration_stacks& get_configuration_stacks()       { return m_ctx.stacks; }
 	const nk_configuration_stacks& get_configuration_stacks() const { return m_ctx.stacks; }
 
-	float& get_delta_time_seconds() { return m_ctx.delta_time_seconds; }
-	float get_delta_time_seconds() const { return m_ctx.delta_time_seconds; }
+	float& get_delta_time_seconds()       { return m_ctx.delta_time_seconds; }
+	float  get_delta_time_seconds() const { return m_ctx.delta_time_seconds; }
 
-	///@}
+	/// @}
 
 private:
 	context() = default;
@@ -5906,8 +6498,8 @@ private:
 	bool m_valid = false;
 };
 
-///@} // core
+/// @} // core
 
-///@} // main
+/// @} // main
 
 } // namespace nk

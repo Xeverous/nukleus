@@ -1,2 +1,9 @@
+# CMake build directory
 build/
+
+# Doxygen directory
 doc/
+
+# clangd
+.clangd
+.cache/
