@@ -1262,7 +1262,8 @@ bool overview(nk::context& ctx)
 				win.layout_row_dynamic(20, 1);
 				win.label("Nuklear", NK_TEXT_LEFT);
 				win.label("By Micha Mettke", NK_TEXT_LEFT);
-				win.label("nuklear is licensed under the public domain License.", NK_TEXT_LEFT);
+				win.label("Nuklear is licensed under the public domain License.", NK_TEXT_LEFT);
+				win.label("Nukleus is licensed under the Boost Software License.", NK_TEXT_LEFT);
 			} else show_app_about = false;
 		}
 
