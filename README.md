@@ -17,8 +17,8 @@ Goals and features:
 Additions:
 
 - Doxygen documentation (with descriptions and examples in C++).
-- C++ object syntax: `nk_button_label(ctx, "text");` => `ctx.button_label("text");`.
-- RAII and other encapsulation: `if (auto grp = ctx.group("group_button", NK_WINDOW_BORDER); grp)` - eliminates the need to manually call `nk_*begin`, `nk_*end` functions.
+- C++ object syntax: `nk_button_label(ctx, "text");` => `win.button_label("text");`.
+- RAII and other encapsulation: `if (auto grp = win.group("group_button", NK_WINDOW_BORDER); grp)` - eliminates the need to manually call `nk_*begin`, `nk_*end` functions.
 - `[[nodiscard]]` to avoid losing important state and resources.
 - Default arguments and function templates to cover multiple C function "overloads" in one C++ function.
 - Improved type safety: Nukleus C++ API uses references where Nuklear's C API does not accept null pointers.
@@ -67,7 +67,7 @@ There are no API changes but new standards may enable additional API in the futu
 
 - C++17 allows very neat code like `if (auto grp = ctx.group("group_button", NK_WINDOW_BORDER); grp)`.
 - Before C++17, `NUKLEUS_NODISCARD` macro will be replaced to something like `__attribute__((warn_unused_result))` if available. With C++17 it's defined to be `[[nodiscard]]`.
-- Default `NK_DTOA` implementation uses `<charconv>` (instead of `snprintf`) when on C++17 or later.
+- Default `NK_DTOA` implementation can use `<charconv>` (instead of `snprintf`) when on C++17 or later (because not all compilers implement it even with C++17, you need to define `NUKLEUS_USE_CHARCONV`).
 - Higher C++ standard versions add more `constexpr`.
 
 **Why some code uses `struct` or `enum` (aka elaborated-type-specifier) in front of type names?**
@@ -142,10 +142,14 @@ This library does not add any backend by itself. Follow Nuklear's documentation.
 
 **How do I translate particular Nuklear's C to Nukleus C++?**
 
+Majority of time you simply change `nk_func(ctx, other_args);` to `win.func(other_args);`. Majority of functions are present in the `nk::context` and `nk::window` classes.
+
+In Nuklear, you can pretty much call any function as long as you have the `nk_context` object. However, many functions are not allowed to be called when their respective scope has not been started (`nk_*begin()`) or has just finished (`nk_*end()`). Because of this, Nukleus puts access to such functions in respective classes (many inherit `scope_guard`), requiring to create them first.
+
 General naming convention in the library:
 
-- `*_scoped` - the function returns a scope guard that should be checked (some scope guards do not have overloaded `operator bool` - in such case no check is required)
-- `*_in_place` - the widget modifies supplied argument in-place (e.g. takes `int&` and returns `void` or `bool` instead of taking `int` and returning `int`)
+- `*_scoped` - the function returns a scope guard. Scope guards automatically manage `nk_*begin()` and `nk_*end()` calls. Most scope guards should be immediately checked (some do not have overloaded `operator bool` - in such case no check is required as their begin call always succeeds)
+- `*_in_place` - the widget modifies supplied argument in-place (e.g. takes `int&` and returns `void` or `bool` instead of taking `int` and returning `int`). Some widgets have both forms.
 
 More complex cases:
 
@@ -155,6 +159,8 @@ nk_vec2i => nk::vec2<short>
 
 nk_rect => nk::rect<float>
 nk_recti => nk::rect<short>
+
+nk_abc_init_xyz => nk::abc constructor or nk::abc::init_xyz static function
 
 nk_begin => context::window_scoped
 
