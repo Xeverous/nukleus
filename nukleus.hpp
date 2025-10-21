@@ -231,7 +231,6 @@
 /*
 TODO possible improvements:
 - document each blank function that should not be used
-- LIST VIEW (3089): nk_list_view_begin, nk_list_view_end - not implemented - no docs and no examples
 - IMAGE, 9-SLICE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
 - UTF-8 - undocumented
@@ -3191,6 +3190,80 @@ public:
 using tree = scope_guard;
 
 /**
+ * @brief List View scope guard (quite special)
+ * @details This guard is quite special because the list view has rather unique API:
+ * - `nk_list_view_begin` has an output `nk_list_view` struct parameter
+ * - `nk_list_view_end` requires this struct, not context
+ */
+class list_view
+{
+public:
+	list_view() = default;
+
+	/* implicit */ list_view(nk_list_view lview, bool valid = false)
+	: m_list_view(lview)
+	, m_valid(valid)
+	{}
+
+	list_view(list_view&& other) noexcept
+	: m_list_view(exchange(other.m_list_view, {}))
+	, m_valid(exchange(other.m_valid, false))
+	{}
+
+	list_view(const list_view&) = delete;
+	list_view& operator=(const list_view&) = delete;
+	list_view& operator=(list_view&&) noexcept = delete;
+
+	~list_view()
+	{
+		reset();
+	}
+
+	void reset()
+	{
+		if (m_valid)
+		{
+			nk_list_view_end(&get());
+			m_valid = false;
+		}
+	}
+
+	/**
+	 * @brief Get the active state of this guard.
+	 * @return `true` if an action has begun (but not ended), `false` otherwise.
+	 */
+	bool is_scope_active() const noexcept
+	{
+		return m_valid;
+	}
+
+	explicit operator bool() && noexcept = delete;
+	/**
+	 * @brief Return whether this scope-widget should be processed.
+	 * @return `true` if visible and fillable with widgets, otherwise `false`.
+	 */
+	explicit operator bool() const & noexcept
+	{
+		return is_scope_active();
+	}
+
+	int begin() const { return m_list_view.begin; }
+	int end()   const { return m_list_view.end; }
+	int count() const { return m_list_view.count; }
+
+	void begin(int value) { m_list_view.begin = value; }
+	void end  (int value) { m_list_view.end = value; }
+	void count(int value) { m_list_view.count = value; }
+
+	const nk_list_view& get() const { return m_list_view; }
+	      nk_list_view& get()       { return m_list_view; }
+
+private:
+	nk_list_view m_list_view = {};
+	bool m_valid = false;
+};
+
+/**
  * @brief UNDOCUMENTED
  */
 class chart : public scope_guard
@@ -4681,6 +4754,24 @@ public:
 	 */
 #define NUKLEUS_TREE_ELEMENT_ID_SCOPED(win, type, title, state, sel, id) \
 	win._tree_element_scoped_internal(nk_tree_element_push_id(&win.get_context(), type, title, state, ::nk::detail::output_bool(sel), id))
+
+	/// @}
+
+	/**
+	 * @name List View
+	 * UNDOCUMENTED and has NO EXAMPLES
+	 * @{
+	 */
+
+	list_view list_view_scoped(const char* id, nk_flags flags, int row_height, int row_count)
+	{
+		nk_list_view lview;
+		// Do not merge the lines below. list_view(lview, nk_list_view_begin(..., &lview, ...)) would cause
+		// it to rely on function argument order of evaluation which is unspecified in C++.
+		// This means it could copy the nk_list_view struct before nk_list_view_begin function call.
+		bool valid = nk_list_view_begin(&get_context(), &lview, id, flags, row_height, row_count) == nk_true;
+		return list_view(lview, valid);
+	}
 
 	/// @}
 
