@@ -164,6 +164,8 @@ nk_abc_init_xyz => nk::abc constructor or nk::abc::init_xyz static function
 
 nk_begin => context::window_scoped
 
+nk_handle_*, nk_image_*, nk_nine_slice_*, nk_sub9slice_* => Image and 9-slice make_* functions
+
 nk_tree_state_        push        => window::tree_state_scoped
 nk_tree_state_  image_push        => window::tree_state_image_scoped
 nk_tree_              push_hashed => window::tree_hashed_scoped

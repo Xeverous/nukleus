@@ -230,7 +230,6 @@
 
 /*
 TODO possible improvements:
-- IMAGE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
 - UTF-8 - undocumented
 */
@@ -998,6 +997,58 @@ inline nk_style_item style_item_hide()
 }
 
 /// @} // color
+
+/**
+ * @defgroup image Image and Handle
+ * @{
+ */
+
+inline handle make_handle(void* ptr)
+{
+	return nk_handle_ptr(ptr);
+}
+
+inline handle make_handle(int id)
+{
+	return nk_handle_id(id);
+}
+
+inline image make_image(handle h)
+{
+	return nk_image_handle(h);
+}
+
+inline image make_image(void* ptr)
+{
+	return nk_image_ptr(ptr);
+}
+
+inline image make_image(int id)
+{
+	return nk_image_id(id);
+}
+
+NUKLEUS_NODISCARD inline bool is_subimage(const image& img)
+{
+	return nk_image_is_subimage(&img) == nk_true;
+}
+
+inline image make_subimage(void* ptr, ushort width, ushort height, rect<float> sub_region)
+{
+	return nk_subimage_ptr(ptr, width, height, sub_region);
+}
+
+inline image make_subimage(int id, ushort width, ushort height, rect<float> sub_region)
+{
+	return nk_subimage_id(id, width, height, sub_region);
+}
+
+inline image make_subimage(handle h, ushort width, ushort height, rect<float> sub_region)
+{
+	return nk_subimage_handle(h, width, height, sub_region);
+}
+
+/// @} // image
 
 /**
  * @defgroup nine 9-Slice
