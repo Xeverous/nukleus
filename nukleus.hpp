@@ -463,7 +463,7 @@ struct output_bool
 // Need to use struct/enum to disambiguate from functions with the same name
 using byte = nk_byte;
 using hash = nk_hash;
-using rune = nk_rune;
+using rune = nk_rune; ///< Unicode UTF-32 codepoint
 using uint = nk_uint;
 
 using color_format = nk_color_format;
@@ -2658,7 +2658,7 @@ private:
  * @brief Context, Windows and Widgets.
  * @details The library's core are simple classes that wrap underlying begin/end calls.
  * In Nuklear, pretty much every function uses the `nk_context` struct.
- * In Nukleus, it's @ref context and @ref windows classes.
+ * In Nukleus, it's @ref context and @ref window classes.
  * Their functions have been grouped by usage patterns and lifetime requirements.
  * For example, you can not call a widget or layout function without first starting a window.
  * For this reason, Nukleus does not bundle all functions in the context class.
