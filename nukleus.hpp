@@ -234,7 +234,6 @@ TODO possible improvements:
 - IMAGE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
 - UTF-8 - undocumented
-- DRAW LIST - uncodumented, no examples
 */
 
 namespace nk {
@@ -1147,6 +1146,11 @@ public:
 		return *m_cmd;
 	}
 
+	const nk_command* operator->() const noexcept
+	{
+		return m_cmd;
+	}
+
 	command_iterator& operator++()
 	{
 		m_cmd = nk__next(m_ctx, m_cmd);
@@ -1184,15 +1188,20 @@ inline bool operator!=(command_iterator lhs, command_iterator rhs) noexcept
 class draw_command_iterator
 {
 public:
-	draw_command_iterator(const nk_context& ctx, const nk_buffer* buf, const nk_draw_command* cmd)
+	draw_command_iterator(const nk_context& ctx, const nk_buffer& buf, const nk_draw_command* cmd)
 	: m_ctx(&ctx)
-	, m_buf(buf)
+	, m_buf(&buf)
 	, m_cmd(cmd)
 	{}
 
 	const nk_draw_command& operator*() const noexcept
 	{
 		return *m_cmd;
+	}
+
+	const nk_draw_command* operator->() const noexcept
+	{
+		return m_cmd;
 	}
 
 	draw_command_iterator& operator++()
@@ -1225,6 +1234,63 @@ inline bool operator!=(draw_command_iterator lhs, draw_command_iterator rhs) noe
 {
 	return !(lhs == rhs);
 }
+
+#ifdef NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+/**
+ * @brief Class for conveniently iterating through draw list commands
+ * @details requires `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`
+ * @sa draw_list
+ */
+class draw_list_iterator
+{
+public:
+	draw_list_iterator(const nk_draw_list& list, const nk_buffer& buf, const nk_draw_command* cmd)
+	: m_draw_list(&list)
+	, m_buf(&buf)
+	, m_cmd(cmd)
+	{}
+
+	const nk_draw_command& operator*() const noexcept
+	{
+		return *m_cmd;
+	}
+
+	const nk_draw_command* operator->() const noexcept
+	{
+		return m_cmd;
+	}
+
+	draw_list_iterator& operator++()
+	{
+		m_cmd = nk__draw_list_next(m_cmd, m_buf, m_draw_list);
+		return *this;
+	}
+
+	draw_list_iterator operator++(int)
+	{
+		draw_list_iterator old = *this;
+		operator++();
+		return old;
+	}
+
+	friend bool operator==(draw_list_iterator lhs, draw_list_iterator rhs) noexcept;
+
+private:
+	const nk_draw_list* m_draw_list;
+	const nk_buffer* m_buf;
+	const nk_draw_command* m_cmd;
+};
+
+inline bool operator==(draw_list_iterator lhs, draw_list_iterator rhs) noexcept
+{
+	return lhs.m_draw_list == rhs.m_draw_list && lhs.m_buf == rhs.m_buf && lhs.m_cmd == rhs.m_cmd;
+}
+
+inline bool operator!=(draw_list_iterator lhs, draw_list_iterator rhs) noexcept
+{
+	return !(lhs == rhs);
+}
+#endif // NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 
 template <typename Iterator>
 class range
@@ -3435,12 +3501,12 @@ public:
 		return nk_contextual_item_label(&get_context(), label, align) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_image_label(nk::image img, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_label(image img, const char* label, nk_flags alignment)
 	{
 		return nk_contextual_item_image_label(&get_context(), img, label, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_text(image img, const char* text, int len, nk_flags alignment)
 	{
 		return nk_contextual_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
@@ -3479,12 +3545,12 @@ public:
 		return nk_menu_item_label(&get_context(), label, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_image_label(nk::image img, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_label(image img, const char* label, nk_flags alignment)
 	{
 		return nk_menu_item_image_label(&get_context(), img, label, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_image_text(nk::image img, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_image_text(image img, const char* text, int len, nk_flags alignment)
 	{
 		return nk_menu_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
@@ -6246,7 +6312,7 @@ public:
 	 * @param config filled out `nk_config` struct to configure the conversion process
 	 * @return one of `nk_convert_result` error codes
 	 */
-	nk_convert_result convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
+	NUKLEUS_NODISCARD nk_convert_result convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
 	{
 		return static_cast<nk_convert_result>(nk_convert(&m_ctx, &cmds, &vertices, &elements, &config));
 	}
@@ -6254,7 +6320,7 @@ public:
 	/**
 	 * @copydoc convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
 	 */
-	nk_convert_result convert(nk::buffer& cmds, nk::buffer& vertices, nk::buffer& elements, const nk_convert_config& config)
+	NUKLEUS_NODISCARD nk_convert_result convert(buffer& cmds, buffer& vertices, buffer& elements, const nk_convert_config& config)
 	{
 		return convert(cmds.get(), vertices.get(), elements.get(), config);
 	}
@@ -6268,15 +6334,15 @@ public:
 	NUKLEUS_NODISCARD range<draw_command_iterator> draw_commands(const nk_buffer& buf) const
 	{
 		return {
-			draw_command_iterator(m_ctx, &buf, nk__draw_begin(&m_ctx, &buf)),
-			draw_command_iterator(m_ctx, &buf, nullptr)
+			draw_command_iterator(m_ctx, buf, nk__draw_begin(&m_ctx, &buf)),
+			draw_command_iterator(m_ctx, buf, nullptr)
 		};
 	}
 
 	/**
 	 * @copydoc draw_commands(const nk_buffer& buf) const
 	 */
-	NUKLEUS_NODISCARD range<draw_command_iterator> draw_commands(const nk::buffer& buf) const
+	NUKLEUS_NODISCARD range<draw_command_iterator> draw_commands(const buffer& buf) const
 	{
 		return draw_commands(buf.get());
 	}
@@ -6476,7 +6542,6 @@ private:
 public:
 	/**
 	 * @name Style
-	 * UNDOCUMENTED
 	 * How scoped overrides work:
 	 * - pass a pointer to an object within this class data
 	 * - pass a value that should override pointed object
@@ -6636,6 +6701,269 @@ private:
 };
 
 /// @} // core
+
+#ifdef NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+/**
+ * @defgroup draw_list Draw List
+ * @brief Draw List API, requires `NK_INCLUDE_VERTEX_BUFFER_OUTPUT`
+ * @details The optional vertex buffer draw list provides a 2D drawing context
+ * with antialiasing functionality which takes basic filled or outlined shapes
+ * or a path and outputs vertexes, elements and draw commands.
+ * The actual draw list API is not required to be used directly while using this
+ * library since converting the default library draw command output is done by
+ * just calling `nk_convert` but Nuklear decided to still make this library
+ * accessible since it can be useful.
+ *
+ * The draw list is based on a path buffering and polygon and polyline
+ * rendering API which allows a lot of ways to draw 2D content to screen.
+ * In fact it is probably more powerful than needed but allows even more crazy
+ * things than this library provides by default.
+ * @{
+ */
+class draw_list
+{
+public:
+	/**
+	 * @name Construction and setup
+	 * @{
+	 */
+	draw_list()
+	{
+		reset();
+	}
+
+	draw_list(const nk_convert_config& config, nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	{
+		setup(config, cmds, vertices, elements, line_aa, shape_aa);
+	}
+
+	draw_list(const nk_convert_config& config, buffer& cmds, buffer& vertices, buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	: draw_list(config, cmds.get(), vertices.get(), elements.get(), line_aa, shape_aa)
+	{}
+
+	void setup(const nk_convert_config& config, nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	{
+		reset();
+		nk_draw_list_setup(&m_draw_list, &config, &cmds, &vertices, &elements, line_aa, shape_aa);
+	}
+
+	void setup(const nk_convert_config& config, buffer& cmds, buffer& vertices, buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	{
+		setup(config, cmds.get(), vertices.get(), elements.get(), line_aa, shape_aa);
+	}
+
+	void reset()
+	{
+		nk_draw_list_init(&m_draw_list);
+	}
+
+	/// @}
+
+	/**
+	 * @name Iteration
+	 * @{
+	 */
+
+	/**
+	 * @brief Get the list of Nuklear's vertex drawing commands.
+	 * @param buf vertex draw command buffer
+	 * @return range object which supports C++11 range-based loops
+	 * @details example use: `for (const nk_draw_command& cmd : list.draw_commands(buf))`
+	 */
+	NUKLEUS_NODISCARD range<draw_list_iterator> draw_commands(const nk_buffer& buf) const
+	{
+		return {
+			draw_list_iterator(m_draw_list, buf, nk__draw_list_begin(&m_draw_list, &buf)),
+			draw_list_iterator(m_draw_list, buf, nullptr)
+		};
+	}
+
+	/**
+	 * @copydoc draw_commands(const nk_buffer& buf) const
+	 */
+	NUKLEUS_NODISCARD range<draw_list_iterator> draw_commands(const buffer& buf) const
+	{
+		return draw_commands(buf.get());
+	}
+
+	/// @}
+
+	/**
+	 * @name Drawing - Path
+	 * @{
+	 */
+
+	/**
+	 * @brief reset path state
+	 */
+	void path_clear()
+	{
+		nk_draw_list_path_clear(&m_draw_list);
+	}
+
+	void path_line_to(vec2<float> pos)
+	{
+		nk_draw_list_path_line_to(&m_draw_list, pos);
+	}
+
+	void path_arc_to_fast(vec2<float> center, float radius, int a_min, int a_max)
+	{
+		nk_draw_list_path_arc_to_fast(&m_draw_list, center, radius, a_min, a_max);
+	}
+
+	void path_arc_to(vec2<float> center, float radius, float a_min, float a_max, unsigned segments)
+	{
+		nk_draw_list_path_arc_to(&m_draw_list, center, radius, a_min, a_max, segments);
+	}
+
+	void path_rect_to(vec2<float> a, vec2<float> b, float rounding)
+	{
+		nk_draw_list_path_rect_to(&m_draw_list, a, b, rounding);
+	}
+
+	void path_curve_to(vec2<float> p2, vec2<float> p3, vec2<float> p4, unsigned num_segments)
+	{
+		nk_draw_list_path_curve_to(&m_draw_list, p2, p3, p4, num_segments);
+	}
+
+	/**
+	 * @brief finish drawing the path by filling it with specified color
+	 * @param col the color to use for filling
+	 */
+	void path_fill(color col)
+	{
+		nk_draw_list_path_fill(&m_draw_list, col);
+	}
+
+	/**
+	 * @brief finish drawing the path by stroking its outline
+	 * @param col color of the path
+	 * @param closed if true, path has a connection back to the beginning
+	 * @param thickness line thickness
+	 */
+	void path_stroke(color col, bool closed, float thickness)
+	{
+		nk_draw_list_path_stroke(&m_draw_list, col, closed ? NK_STROKE_CLOSED : NK_STROKE_OPEN, thickness);
+	}
+
+	/// @}
+
+	/**
+	 * @name Drawing - Stroke
+	 * @{
+	 */
+
+	void stroke_line(vec2<float> a, vec2<float> b, color col, float thickness)
+	{
+		nk_draw_list_stroke_line(&m_draw_list, a, b, col, thickness);
+	}
+
+	void stroke_rect(rect<float> r, color col, float rounding, float thickness)
+	{
+		nk_draw_list_stroke_rect(&m_draw_list, r, col, rounding, thickness);
+	}
+
+	void stroke_triangle(vec2<float> a, vec2<float> b, vec2<float> c, color col, float thickness)
+	{
+		nk_draw_list_stroke_triangle(&m_draw_list, a, b, c, col, thickness);
+	}
+
+	void stroke_circle(vec2<float> center, float radius, color col, unsigned num_segments, float thickness)
+	{
+		nk_draw_list_stroke_circle(&m_draw_list, center, radius, col, num_segments, thickness);
+	}
+
+	void stroke_curve(vec2<float> p0, vec2<float> cp0, vec2<float> cp1, vec2<float> p1, color col, unsigned num_segments, float thickness)
+	{
+		nk_draw_list_stroke_curve(&m_draw_list, p0, cp0, cp1, p1, col, num_segments, thickness);
+	}
+
+	void stroke_poly_line(span<const struct nk_vec2> points, color col, bool closed, float thickness, enum nk_anti_aliasing aa)
+	{
+		nk_draw_list_stroke_poly_line(&m_draw_list, points.data(), static_cast<unsigned>(points.size()), col, closed ? NK_STROKE_CLOSED : NK_STROKE_OPEN, thickness, aa);
+	}
+
+
+	/// @}
+
+	/**
+	 * @name Drawing - Fill
+	 * @{
+	 */
+
+	void fill_rect(rect<float> r, color col, float rounding)
+	{
+		return nk_draw_list_fill_rect(&m_draw_list, r, col, rounding);
+	}
+
+	void fill_rect_multi_color(rect<float> r, color left, color top, color right, color bottom)
+	{
+		return nk_draw_list_fill_rect_multi_color(&m_draw_list, r, left, top, right, bottom);
+	}
+
+	void fill_triangle(vec2<float> a, vec2<float> b, vec2<float> c, color col)
+	{
+		return nk_draw_list_fill_triangle(&m_draw_list, a, b, c, col);
+	}
+
+	void fill_circle(vec2<float> center, float radius, color col, unsigned num_segments)
+	{
+		return nk_draw_list_fill_circle(&m_draw_list, center, radius, col, num_segments);
+	}
+
+	void fill_poly_convex(span<const struct nk_vec2> points, color col, nk_anti_aliasing aa)
+	{
+		return nk_draw_list_fill_poly_convex(&m_draw_list, points.data(), static_cast<unsigned>(points.size()), col, aa);
+	}
+
+	/// @}
+
+	/**
+	 * @name Drawing - Misc
+	 * @{
+	 */
+
+	void add_image(image texture, rect<float> r, color col)
+	{
+		nk_draw_list_add_image(&m_draw_list, texture, r, col);
+	}
+
+	void add_text(const nk_user_font& font, rect<float> r, const char* text, int text_len, float font_height, color col)
+	{
+		nk_draw_list_add_text(&m_draw_list, &font, r, text, text_len, font_height, col);
+	}
+
+#ifdef NK_INCLUDE_COMMAND_USERDATA
+	/**
+	 * @brief set user data in the draw list, requires `NK_INCLUDE_COMMAND_USERDATA`
+	 * @param userdata the handle to set
+	 * @details this is more of a set than push (only 1 object can be assigned),
+	 * thus the name differs from Nuklear
+	 */
+	void set_userdata(handle userdata)
+	{
+		nk_draw_list_push_userdata(&m_draw_list, userdata);
+	}
+#endif
+
+	/// @}
+
+	/**
+	 * @name Access
+	 * @{
+	 */
+
+	const nk_draw_list& get() const { return m_draw_list; }
+	      nk_draw_list& get()       { return m_draw_list; }
+
+	/// @}
+
+private:
+	nk_draw_list m_draw_list = {};
+};
+
+/// @} // draw_list
+#endif // NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 
 /// @} // main
 

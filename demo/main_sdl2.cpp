@@ -204,7 +204,9 @@ void nk_sdl_render(nk::context& ctx, buffers& buffs, nk_draw_null_texture tex_nu
 		config.global_alpha = 1.0f;
 		config.shape_AA = aa;
 		config.line_AA = aa;
-		ctx.convert(buffs.cmds, buffs.vbuf, buffs.ebuf, config);
+		const nk_convert_result result = ctx.convert(buffs.cmds, buffs.vbuf, buffs.ebuf, config);
+		if (result != nk_convert_result::NK_CONVERT_SUCCESS)
+			std::cerr << "error when converting: " << static_cast<int>(result) << "\n";
 
 		/* setup vertex buffer pointer */
 		{
