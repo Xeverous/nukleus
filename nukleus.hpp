@@ -230,7 +230,6 @@
 
 /*
 TODO possible improvements:
-- document each blank function that should not be used
 - IMAGE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
 - UTF-8 - undocumented
@@ -3781,11 +3780,24 @@ private:
 	{}
 
 public:
+	/**
+	 * @brief create a window object
+	 * @param ctx `nk_context` reference
+	 * @param valid whether the instance manages a window
+	 * @return window object
+	 * @details Normally you should not need to use this function. See @ref context::window_scoped.
+	 */
 	NUKLEUS_NODISCARD static window create(nk_context& ctx, bool valid)
 	{
 		return window(ctx, &nk_end, valid);
 	}
 
+	/**
+	 * @brief create a window object that does not manage any window
+	 * @param ctx `nk_context` reference
+	 * @return empty window object
+	 * @details Normally you should not need to use this function. @ref context::window_blank.
+	 */
 	NUKLEUS_NODISCARD static window create_blank(nk_context& ctx)
 	{
 		return window(ctx, nullptr, false);
@@ -4393,7 +4405,7 @@ public:
 	/**
 	 * @brief Create a layout scope guard that does not manage any layout.
 	 * @return Blank layout object.
-	 * @attention Use this function when you want to gain access to layout functions (e.g. groups)
+	 * @note Use this function when you want to gain access to layout functions (e.g. groups)
 	 * but do not want to change or create a new layout.
 	 */
 	NUKLEUS_NODISCARD layout layout_blank()
