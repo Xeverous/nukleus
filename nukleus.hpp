@@ -231,7 +231,7 @@
 /*
 TODO possible improvements:
 - document each blank function that should not be used
-- IMAGE, 9-SLICE - unclear what the API does
+- IMAGE - unclear what the API does
 - nk_flags - an alias for uint, not type safe
 - UTF-8 - undocumented
 - DRAW LIST - uncodumented, no examples
@@ -465,9 +465,12 @@ using byte = nk_byte;
 using hash = nk_hash;
 using rune = nk_rune; ///< Unicode UTF-32 codepoint
 using uint = nk_uint;
+using ushort = nk_ushort;
+using handle = nk_handle;
 
 using color_format = nk_color_format;
 using image = struct nk_image;
+using nine_slice = nk_nine_slice;
 using symbol_type = nk_symbol_type;
 using heading = nk_heading;
 
@@ -997,6 +1000,49 @@ inline nk_style_item style_item_hide()
 }
 
 /// @} // color
+
+/**
+ * @defgroup nine 9-Slice
+ * UNDOCUMENTED
+ * @{
+ */
+
+inline nine_slice make_9slice(handle h, ushort left, ushort top, ushort right, ushort bottom)
+{
+	return nk_nine_slice_handle(h, left, top, right, bottom);
+}
+
+inline nine_slice make_9slice(void* ptr, ushort left, ushort top, ushort right, ushort bottom)
+{
+	return nk_nine_slice_ptr(ptr, left, top, right, bottom);
+}
+
+inline nine_slice make_9slice(int id, ushort left, ushort top, ushort right, ushort bottom)
+{
+	return nk_nine_slice_id(id, left, top, right, bottom);
+}
+
+inline bool is_sub9slice(const nine_slice& img)
+{
+	return nk_nine_slice_is_sub9slice(&img) != 0;
+}
+
+inline nine_slice make_sub9slice(void* ptr, ushort width, ushort height, rect<float> sub_region, ushort left, ushort top, ushort right, ushort bottom)
+{
+	return nk_sub9slice_ptr(ptr, width, height, sub_region, left, top, right, bottom);
+}
+
+inline nine_slice make_sub9slice(int id, ushort width, ushort height, rect<float> sub_region, ushort left, ushort top, ushort right, ushort bottom)
+{
+	return nk_sub9slice_id(id, width, height, sub_region, left, top, right, bottom);
+}
+
+inline nine_slice make_sub9slice(handle h, ushort width, ushort height, rect<float> sub_region, ushort left, ushort top, ushort right, ushort bottom)
+{
+	return nk_sub9slice_handle(h, width, height, sub_region, left, top, right, bottom);
+}
+
+/// @} // nine
 
 /**
  * @defgroup string String utility functions
@@ -2593,7 +2639,7 @@ public:
 		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, fmt);
 	}
 
-	NUKLEUS_NODISCARD nk_draw_null_texture end(nk_handle texture)
+	NUKLEUS_NODISCARD nk_draw_null_texture end(handle texture)
 	{
 		nk_draw_null_texture tex_null{};
 		nk_font_atlas_end(&m_atlas, texture, &tex_null);
@@ -3619,7 +3665,7 @@ public:
 	}
 
 	// Can not provide better abstraction here - the callback is not used immediately
-	void push_custom(rect<float> r, nk_command_custom_callback cb, nk_handle usr)
+	void push_custom(rect<float> r, nk_command_custom_callback cb, handle usr)
 	{
 		nk_push_custom(m_cmd_buf, r, cb, usr);
 	}
@@ -6010,11 +6056,11 @@ public:
 #ifdef NK_INCLUDE_COMMAND_USERDATA
 	/**
 	 * @brief Set the userdata passed down into each draw command. Requires `NK_INCLUDE_COMMAND_USERDATA`.
-	 * @param handle the value to set
+	 * @param h the value to set
 	 */
-	void set_user_data(nk_handle handle)
+	void set_user_data(handle h)
 	{
-		nk_set_user_data(&m_ctx, handle);
+		nk_set_user_data(&m_ctx, h);
 	}
 #endif
 	explicit operator bool() && noexcept = delete;
