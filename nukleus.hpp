@@ -909,7 +909,7 @@ struct color
 {
 	color() = default;
 
-	color(nk_byte r, nk_byte g, nk_byte b, nk_byte a = 255)
+	color(byte r, byte g, byte b, byte a = 255)
 	: r(r), g(g), b(b), a(a)
 	{}
 
@@ -917,11 +917,11 @@ struct color
 	: color(col.r, col.g, col.b, col.a)
 	{}
 
-	color(nk_color col, nk_byte a)
+	color(nk_color col, byte a)
 	: color(col.r, col.g, col.b, a)
 	{}
 
-	/* implicit */ color(nk_colorf col)
+	explicit color(nk_colorf col)
 	: color(nk_rgba_cf(col))
 	{}
 
@@ -929,7 +929,7 @@ struct color
 	: color(nk_rgba_f(col.r, col.g, col.b, a))
 	{}
 
-	color(nk_colorf col, nk_byte a)
+	color(nk_colorf col, byte a)
 	: color(nk_rgb_f(col.r, col.g, col.b), a)
 	{}
 
@@ -942,11 +942,11 @@ struct color
 
 	/// @brief clamps values in range [0, 255]
 	NUKLEUS_NODISCARD static color from_rgb(int r, int g, int b) { return nk_rgb(r, g, b); }
-	NUKLEUS_NODISCARD static color from_rgb(nk_byte r, nk_byte g, nk_byte b) { return nk_color{r, g, b, static_cast<nk_byte>(255)}; }
+	NUKLEUS_NODISCARD static color from_rgb(byte r, byte g, byte b) { return nk_color{r, g, b, static_cast<byte>(255)}; }
 	/// @brief clamps values in range [0, 255]; [rgb, rgb+3) must be a valid range
 	NUKLEUS_NODISCARD static color from_rgb(const int* rgb) { return nk_rgb_iv(rgb); }
 	/// @brief [rgb, rgb+3) must be a valid range
-	NUKLEUS_NODISCARD static color from_rgb(const nk_byte* rgb) { return nk_rgb_bv(rgb); }
+	NUKLEUS_NODISCARD static color from_rgb(const byte* rgb) { return nk_rgb_bv(rgb); }
 
 	/// @}
 
@@ -969,11 +969,11 @@ struct color
 
 	/// @brief clamps values in range [0, 255]
 	NUKLEUS_NODISCARD static color from_rgba(int r, int g, int b, int a) { return nk_rgba(r, g, b, a); }
-	NUKLEUS_NODISCARD static color from_rgba(nk_byte r, nk_byte g, nk_byte b, nk_byte a) { return nk_color{r, g, b, a}; }
+	NUKLEUS_NODISCARD static color from_rgba(byte r, byte g, byte b, byte a) { return nk_color{r, g, b, a}; }
 	/// @brief clamps values in range [0, 255]; [rgba, rgba+4) must be a valid range
 	NUKLEUS_NODISCARD static color from_rgba(const int* rgba) { return nk_rgba_iv(rgba); }
 	/// @brief [rgba, rgba+4) must be a valid range
-	NUKLEUS_NODISCARD static color from_rgba(const nk_byte* rgba) { return nk_rgba_bv(rgba); }
+	NUKLEUS_NODISCARD static color from_rgba(const byte* rgba) { return nk_rgba_bv(rgba); }
 
 	NUKLEUS_NODISCARD static color from_rgba(nk_uint rgba) { return nk_rgba_u32(rgba); }
 	/// @brief multiply other color by a factor, alpha unchanged
@@ -1000,11 +1000,11 @@ struct color
 
 	/// @brief clamps values in range [0, 255]
 	NUKLEUS_NODISCARD static color from_hsv(int h, int s, int v) { return nk_hsv(h, s, v); }
-	NUKLEUS_NODISCARD static color from_hsv(nk_byte h, nk_byte s, nk_byte v) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, 1.0f); }
+	NUKLEUS_NODISCARD static color from_hsv(byte h, byte s, byte v) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, 1.0f); }
 	/// @brief clamps values in range [0, 255]; [hsv, hsv+3) must be a valid range
 	NUKLEUS_NODISCARD static color from_hsv(const int* hsv) { return nk_hsv_iv(hsv); }
 	/// @brief [hsv, hsv+3) must be a valid range
-	NUKLEUS_NODISCARD static color from_hsv(const nk_byte* hsv) { return nk_hsv_bv(hsv); }
+	NUKLEUS_NODISCARD static color from_hsv(const byte* hsv) { return nk_hsv_bv(hsv); }
 
 	/// @}
 
@@ -1026,11 +1026,11 @@ struct color
 
 	/// @brief clamps values in range [0, 255]
 	NUKLEUS_NODISCARD static color from_hsva(int h, int s, int v, int a) { return nk_hsva(h, s, v, a); }
-	NUKLEUS_NODISCARD static color from_hsva(nk_byte h, nk_byte s, nk_byte v, nk_byte a) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, a / 255.0f); }
+	NUKLEUS_NODISCARD static color from_hsva(byte h, byte s, byte v, byte a) { return nk_hsva_f(h / 255.0f, s / 255.0f, v / 255.0f, a / 255.0f); }
 	/// @brief clamps values in range [0, 255]; [hsv, hsv+4) must be a valid range
 	NUKLEUS_NODISCARD static color from_hsva(const int* hsva) { return nk_hsva_iv(hsva); }
 	/// @brief [hsva, hsva+4) must be a valid range
-	NUKLEUS_NODISCARD static color from_hsva(const nk_byte* hsva) { return nk_hsva_bv(hsva); }
+	NUKLEUS_NODISCARD static color from_hsva(const byte* hsva) { return nk_hsva_bv(hsva); }
 
 	/// @}
 
@@ -1071,10 +1071,10 @@ struct color
 
 	nk_uint to_u32() const { return nk_color_u32(*this); }
 
-	nk_byte r = 0;
-	nk_byte g = 0;
-	nk_byte b = 0;
-	nk_byte a = 255;
+	byte r = 0;
+	byte g = 0;
+	byte b = 0;
+	byte a = 255;
 };
 
 /**
@@ -1097,11 +1097,11 @@ struct colorf
 	: colorf(col.r, col.g, col.b, a)
 	{}
 
-	/* implicit */ colorf(nk_color col)
+	explicit colorf(nk_color col)
 	: colorf(nk_color_cf(col))
 	{}
 
-	colorf(nk_color col, nk_byte a)
+	colorf(nk_color col, byte a)
 	: colorf(nk_color_cf({col.r, col.g, col.b, a}))
 	{}
 
@@ -1134,21 +1134,25 @@ struct color_hsva
 {
 	color_hsva() = default;
 
-	/* implicit */ color_hsva(nk_color col)
+	color_hsva(byte h, byte s, byte v, byte a = 255)
+	: h(h), s(s), v(v), a(a)
+	{}
+
+	explicit color_hsva(nk_color col)
 	{
 		nk_color_hsva_b(&h, &s, &v, &a, col);
 	}
 
-	color_hsva(nk_color col, nk_byte a)
+	color_hsva(nk_color col, byte a)
 	{
 		nk_color_hsv_b(&h, &s, &v, col);
 		this->a = a;
 	}
 
-	nk_byte h = 0;
-	nk_byte s = 0;
-	nk_byte v = 0;
-	nk_byte a = 255;
+	byte h = 0;
+	byte s = 0;
+	byte v = 0;
+	byte a = 255;
 };
 
 /**
@@ -1158,7 +1162,11 @@ struct colorf_hsva
 {
 	colorf_hsva() = default;
 
-	/* implicit */ colorf_hsva(nk_colorf col)
+	colorf_hsva(float h, float s, float v, float a = 1.0f)
+	: h(h), s(s), v(v), a(a)
+	{}
+
+	explicit colorf_hsva(nk_colorf col)
 	{
 		nk_colorf_hsva_f(&h, &s, &v, &a, col);
 	}
@@ -1167,7 +1175,7 @@ struct colorf_hsva
 	: colorf_hsva(nk_colorf{col.r, col.g, col.b, a})
 	{}
 
-	/* implicit */ colorf_hsva(nk_color col)
+	explicit colorf_hsva(nk_color col)
 	{
 		nk_color_hsva_f(&h, &s, &v, &a, col);
 	}
@@ -1180,27 +1188,39 @@ struct colorf_hsva
 
 // RGBA (int)  => RGBA (float)
 // RGBA (float) => RGBA (int)
-inline colorf rgba_to_rgbaf(color rgba) { return static_cast<nk_color>(rgba); }
-inline color rgbaf_to_rgba(colorf rgbaf) { return static_cast<nk_colorf>(rgbaf); }
+inline colorf rgba_to_rgbaf(color rgba) { return colorf(static_cast<nk_color>(rgba)); }
+inline color rgbaf_to_rgba(colorf rgbaf) { return color(static_cast<nk_colorf>(rgbaf)); }
 
 // HSVA (int)  => HSVA (float)
 // HSVA (float) => HSVA (int)
-// inline colorf_hsva hsva_to_hsvaf(color_hsva hsva); // TODO
-// inline color_hsva hsvaf_to_hsva(colorf_hsva hsvaf); // TODO
+// (no implementation in Nuklear)
+inline colorf_hsva hsva_to_hsvaf(color_hsva hsva)
+{
+	return colorf_hsva(hsva.h * 255.0f, hsva.s * 255.0f, hsva.v * 255.0f, hsva.a * 255.0f);
+}
+inline color_hsva hsvaf_to_hsva(colorf_hsva hsvaf)
+{
+	return color_hsva(
+		static_cast<byte>(hsvaf.h / 255.0f),
+		static_cast<byte>(hsvaf.s / 255.0f),
+		static_cast<byte>(hsvaf.v / 255.0f),
+		static_cast<byte>(hsvaf.a / 255.0f)
+	);
+}
 
 // RGBA (int) => HSVA (int)
 // HSVA (int) => RGBA (int)
-inline color_hsva rgba_to_hsva(color rgba) { return static_cast<nk_color>(rgba); }
+inline color_hsva rgba_to_hsva(color rgba) { return color_hsva(static_cast<nk_color>(rgba)); }
 inline color hsva_to_rgba(color_hsva hsva) { return nk_hsva(hsva.h, hsva.s, hsva.v, hsva.a); }
 
 // RGBA (float) => HSVA (float)
 // HSVA (float) => RGBA (float)
-inline colorf_hsva rgbaf_to_hsvaf(colorf rgbaf) { return static_cast<nk_colorf>(rgbaf); }
+inline colorf_hsva rgbaf_to_hsvaf(colorf rgbaf) { return colorf_hsva(static_cast<nk_colorf>(rgbaf)); }
 inline colorf hsvaf_to_rgbaf(colorf_hsva hsvaf) { return nk_hsva_colorf(hsvaf.h, hsvaf.s, hsvaf.v, hsvaf.a); }
 
 // RGBA (int)  => HSVA (float)
 // HSVA (float) => RGBA (int)
-inline colorf_hsva rgba_to_hsvaf(color rgba) { return static_cast<nk_color>(rgba); }
+inline colorf_hsva rgba_to_hsvaf(color rgba) { return colorf_hsva(static_cast<nk_color>(rgba)); }
 inline color hsvaf_to_rgba(colorf_hsva hsvaf) { return nk_hsva_f(hsvaf.h, hsvaf.s, hsvaf.v, hsvaf.a); }
 
 // RGBA (float) => HSVA (int)
