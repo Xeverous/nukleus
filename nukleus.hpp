@@ -252,11 +252,31 @@ namespace nk {
  * @{
  */
 
-struct true_type  { static constexpr bool value = true; };
-struct false_type { static constexpr bool value = false; };
+template <typename T, T Value>
+struct integral_constant
+{
+	static constexpr T value = Value;
+	using value_type = T;
+	using type = integral_constant;
+	constexpr operator value_type() const noexcept { return value; }
+	constexpr value_type operator()() const noexcept { return value; }
+};
+
+using true_type  = integral_constant<bool, true>;
+using false_type = integral_constant<bool, false>;
 
 template <typename T, typename U> struct is_same       : false_type {};
 template <typename T>             struct is_same<T, T> : true_type {};
+
+template <typename T>            struct is_void : false_type {};
+template <> struct is_void<void>                : true_type {};
+template <> struct is_void<const void>          : true_type {};
+template <> struct is_void<volatile void>       : true_type {};
+template <> struct is_void<const volatile void> : true_type {};
+
+template <typename T>                  struct is_array       : false_type {};
+template <typename T>                  struct is_array<T[]>  : true_type {};
+template <typename T, unsigned long N> struct is_array<T[N]> : true_type {};
 
 template <typename T> struct is_pointer      : false_type {};
 template <typename T> struct is_pointer<T*>  : true_type {};
@@ -277,22 +297,100 @@ template <typename T> struct is_const<const T> : true_type {};
 template <typename>   struct is_volatile             : false_type {};
 template <typename T> struct is_volatile<volatile T> : true_type {};
 
+template <typename T>
+struct is_function :
+	integral_constant<
+		bool,
+		!is_const<const T>::value && !is_reference<T>::value
+	> {};
+
+namespace detail
+{
+	// Note: a positive case should do this:
+	// integral_constant<bool, !is_union<T>::value> test(int T::*);
+	// but is_union is not implementable without compiler support.
+
+	template <typename T> true_type class_test(int T::*);
+	template <typename>  false_type class_test(...);
+}
+
+/**
+ * @brief simplified `std::is_class` trait, does not handle union types
+ * @tparam T type to check, should not be a union type
+ */
+template <typename T>
+struct is_class : decltype(detail::class_test<T>(nullptr)) {};
+
+namespace detail
+{
+	template <typename Base> true_type test_ptr_conv(const volatile Base*);
+	template <typename>     false_type test_ptr_conv(const volatile void*);
+
+	template <typename Base, typename Derived>
+	auto test_is_base_of(int) -> decltype(test_ptr_conv<Base>(static_cast<Derived*>(nullptr)));
+	template <typename, typename>
+	auto test_is_base_of(...) -> true_type; // private or ambiguous base
+}
+
+/**
+ * @brief simplified `std::is_base_of` trait, does not handle union types
+ * @tparam Base base type
+ * @tparam Derived derived type
+ */
+template <typename Base, typename Derived>
+struct is_base_of :
+	integral_constant<
+		bool,
+		is_class<Base>::value &&
+		is_class<Derived>::value &&
+		decltype(detail::test_is_base_of<Base, Derived>(0))::value
+	> {};
+
 #ifdef NUKLEUS_CPP14 // C++14 variable templates
 template <typename T, typename U> constexpr bool is_same_v = is_same<T, U>::value;
+template <typename T> constexpr bool is_void_v = is_void<T>::value;
+template <typename T> constexpr bool is_array_v = is_array<T>::value;
 template <typename T> constexpr bool is_pointer_v = is_pointer<T>::value;
 template <typename T> constexpr bool is_lvalue_reference_v = is_lvalue_reference<T>::value;
 template <typename T> constexpr bool is_rvalue_reference_v = is_rvalue_reference<T>::value;
 template <typename T> constexpr bool is_reference_v = is_reference<T>::value;
 template <typename T> constexpr bool is_const_v = is_const<T>::value;
 template <typename T> constexpr bool is_volatile_v = is_volatile<T>::value;
+template <typename T> constexpr bool is_function_v = is_function<T>::value;
+template <typename T> constexpr bool is_class_v = is_class<T>::value;
+template <typename Base, typename Derived> constexpr bool is_base_of_v = is_base_of<Base, Derived>::value;
 #endif
 
 /// @} // detection_traits
 
 /**
  * @defgroup transformation_traits Transformation Traits
+ * @details The implementation skips some corner cases:
+ * - The `add_*_reference` traits do not support abominable types (https://wg21.link/P0172r0#2.1)
+ *   which means you will get compiler errors when using such types with these traits (instead of same type).
+ *   This also affects other things which depent on these, including @ref declval
+ * - @ref invoke_result does not handle `std::reference_wrapper` (would need to add an include)
  * @{
  */
+
+template <typename T> struct add_lvalue_reference            { using type = T&; };
+template <> struct add_lvalue_reference<void>                { using type = void; };
+template <> struct add_lvalue_reference<const void>          { using type = const void; };
+template <> struct add_lvalue_reference<volatile void>       { using type = volatile void; };
+template <> struct add_lvalue_reference<const volatile void> { using type = const volatile void; };
+template <typename T> using add_lvalue_reference_t = typename add_lvalue_reference<T>::type;
+
+template <typename T> struct add_rvalue_reference            { using type = T&&; };
+template <> struct add_rvalue_reference<void>                { using type = void; };
+template <> struct add_rvalue_reference<const void>          { using type = const void; };
+template <> struct add_rvalue_reference<volatile void>       { using type = volatile void; };
+template <> struct add_rvalue_reference<const volatile void> { using type = const volatile void; };
+template <typename T> using add_rvalue_reference_t = typename add_rvalue_reference<T>::type;
+
+template <typename T>                  struct remove_extent       { using type = T; };
+template <typename T>                  struct remove_extent<T[]>  { using type = T; };
+template <typename T, unsigned long N> struct remove_extent<T[N]> { using type = T; };
+template <typename T> using remove_extent_t = typename remove_extent<T>::type;
 
 template <typename T> struct remove_reference      { using type = T; };
 template <typename T> struct remove_reference<T&>  { using type = T; };
@@ -311,12 +409,36 @@ template <typename T> using remove_cvref_t = typename remove_cvref<T>::type;
 template <typename T> struct type_identity { using type = T; };
 template <typename T> using type_identity_t = typename type_identity<T>::type;
 
+namespace detail
+{
+	template <typename T>
+	auto try_add_pointer(int) -> type_identity<remove_reference_t<T>*>; // usual case
+
+	template <typename T>
+	auto try_add_pointer(...) -> type_identity<T>; // unusual case (cannot form a pointer)
+} // namespace detail
+
+template <typename T>
+struct add_pointer : decltype(detail::try_add_pointer<T>(0)) {};
+template <typename T>
+using add_pointer_t = typename add_pointer<T>::type;
+
 /// @} // transformation_traits
 
 /**
  * @defgroup meta_traits Meta Traits
  * @{
  */
+
+template <typename...>
+struct param_pack {};
+
+template <bool B, typename T, typename F>
+struct conditional { using type = T; };
+template <typename T, typename F>
+struct conditional<false, T, F> { using type = F; };
+template <bool B, typename T, typename F>
+using conditional_t = typename conditional<B, T, F>::type;
 
 template <bool B, typename T = void> struct enable_if {};
 template <typename T>                struct enable_if<true, T> { using type = T; };
@@ -327,6 +449,32 @@ template <typename... Ts> using void_t = typename void_t_impl<Ts...>::type;
 
 /// @} // meta_traits
 
+// (depends on conditional)
+/**
+ * @addtogroup transformation_traits
+ * @{
+ */
+template <typename T>
+struct decay
+{
+private:
+	using U = remove_reference_t<T>;
+public:
+	using type = conditional_t<
+		is_array<U>::value,
+		add_pointer_t<remove_extent_t<U>>,
+		conditional_t<
+			is_function<U>::value,
+			add_pointer_t<U>,
+			remove_cv_t<U>
+		>
+	>;
+};
+
+template <typename T>
+using decay_t = typename decay<T>::type;
+/// @}
+
 /// @} // type_traits
 
 /**
@@ -334,6 +482,12 @@ template <typename... Ts> using void_t = typename void_t_impl<Ts...>::type;
  * @brief Implementation of some functions from \<utility\>.
  * @{
  */
+
+template <typename T>
+add_rvalue_reference_t<T> declval() noexcept
+{
+	static_assert(sizeof(T) == 0u, "this function should only be used in unevaluated contexts");
+}
 
 inline bool is_aligned(const void* ptr, nk_size alignment) noexcept
 {
@@ -355,13 +509,13 @@ constexpr remove_reference_t<T>&& move(T&& t) noexcept
 	return static_cast<remove_reference_t<T>&&>(t);
 }
 
-template<typename T>
+template <typename T>
 constexpr T&& forward(remove_reference_t<T>& t) noexcept
 {
 	return static_cast<T&&>(t);
 }
 
-template<typename T>
+template <typename T>
 constexpr T&& forward(remove_reference_t<T>&& t) noexcept
 {
 	static_assert(!is_lvalue_reference<T>::value, "forward must not be used to convert an rvalue to an lvalue");
@@ -445,6 +599,147 @@ struct output_bool
 
 /// @} // utility
 
+// (depends on declval)
+/**
+ * @addtogroup meta_traits
+ * @{
+ */
+namespace detail
+{
+	template <typename T>
+	struct invoke_impl
+	{
+		template <typename F, typename... Args>
+		static auto call(F&& f, Args&&... args)
+			-> decltype(forward<F>(f)(forward<Args>(args)...));
+	};
+
+	template <typename B, typename MT>
+	struct invoke_impl<MT B::*>
+	{
+		template <typename T, typename Td = decay_t<T>,
+			typename = enable_if_t<is_base_of<B, Td>::value>>
+		static auto get(T&& t) -> T&&;
+
+		template <typename T, typename Td = decay_t<T>,
+			typename = enable_if_t<!is_base_of<B, Td>::value>>
+		static auto get(T&& t) -> decltype(*forward<T>(t));
+
+		template <typename T, typename... Args, typename MT1,
+			typename = enable_if_t<is_function<MT1>::value>>
+		static auto call(MT1 B::*pmf, T&& t, Args&&... args)
+			-> decltype((invoke_impl::get(forward<T>(t)).*pmf)(forward<Args>(args)...));
+
+		template <typename T>
+		static auto call(MT B::*pmd, T&& t)
+			-> decltype(invoke_impl::get(forward<T>(t)).*pmd);
+	};
+
+	template <typename F, typename... Args, typename Fd = decay_t<F>>
+	auto invoke(F&& f, Args&&... args)
+		-> decltype(invoke_impl<Fd>::call(forward<F>(f), forward<Args>(args)...));
+
+	template <typename AlwaysVoid, typename, typename...> struct invoke_result {};
+
+	template <typename F, typename... Args> struct invoke_result<
+		decltype(void(detail::invoke(declval<F>(), declval<Args>()...))),
+		F,
+		Args...>
+	{
+		using type = decltype(detail::invoke(declval<F>(), declval<Args>()...));
+	};
+} // namespace detail
+
+/**
+ * @brief simplified implementation of C++17 `std::invoke_result`
+ * @details does not handle:
+ * - `std::reference_wrapper`
+ * - abominable function types (see transformation traits description)
+ * - union types
+ */
+template <typename F, typename... Args>
+struct invoke_result : detail::invoke_result<void, F, Args...> {};
+template <typename F, typename... Args>
+using invoke_result_t = typename invoke_result<F, Args...>::type;
+
+/// @} // meta_traits
+
+// (depends on invoke_result and declval)
+/**
+ * @addtogroup detection_traits
+ * @{
+ */
+
+namespace detail
+{
+	template <typename T>
+	auto test_returnable(int) -> decltype(
+		void(static_cast<T(*)()>(nullptr)), true_type{}
+	);
+	template <typename>
+	auto test_returnable(...) -> false_type;
+
+	template <typename From, typename To>
+	auto test_implicitly_convertible(int) -> decltype(
+		void(declval<void(&)(To)>()(declval<From>())), true_type{}
+	);
+	template <typename, typename>
+	auto test_implicitly_convertible(...) -> false_type;
+} // namespace detail
+
+template <typename From, typename To>
+struct is_convertible : integral_constant<bool,
+	(decltype(detail::test_returnable<To>(0))::value &&
+	 decltype(detail::test_implicitly_convertible<From, To>(0))::value) ||
+	(is_void<From>::value && is_void<To>::value)
+> {};
+
+// https://stackoverflow.com/a/78566465/4818802
+namespace detail {
+	template <typename, typename, typename = void>
+	struct is_invocable : false_type {};
+
+	template <typename F, typename... Args>
+	struct is_invocable<
+		F,
+		param_pack<Args...>,
+		void_t<invoke_result_t<F, Args...>>>
+	: true_type {};
+}
+
+template <typename F, typename... Args>
+struct is_invocable : detail::is_invocable<F, param_pack<Args...>> {};
+
+namespace detail
+{
+	template <typename, typename, typename, typename = void>
+	struct is_invocable_r : false_type {};
+
+	template <typename R, typename F, typename... Args>
+	struct is_invocable_r<
+		R,
+		F,
+		param_pack<Args...>,
+		void_t<is_convertible<invoke_result<F, Args...>, R>>>
+	: true_type {};
+}
+
+template <typename R, typename F, typename... Args>
+struct is_invocable_r : detail::is_invocable_r<R, F, param_pack<Args...>> {};
+
+#ifdef NUKLEUS_CPP14
+template <typename From, typename To>
+constexpr bool is_convertible_v = is_convertible<From, To>::value;
+
+template <typename Fn, typename... Args>
+constexpr bool is_invocable_v = is_invocable<Fn, Args...>::value;
+
+template <typename R, typename Fn, typename... Args>
+constexpr bool is_invocable_r_v = is_invocable_r<R, Fn, Args...>::value;
+#endif
+
+/// @}
+
 /// @} // stdlib
 
 /**
@@ -488,15 +783,15 @@ using button_behavior = enum nk_button_behavior;
 template <typename T>
 constexpr T max_unsigned_value()
 {
-	static_assert(static_cast<T>(0) < static_cast<T>(-1));
 	// use guuaranteed overflow on unsigned types
+	static_assert(static_cast<T>(0) < static_cast<T>(-1), "type should be unsigned");
 	return static_cast<T>(-1);
 }
 
 template <typename T>
 constexpr T max_signed_value()
 {
-	static_assert(static_cast<T>(0) > static_cast<T>(-1));
+	static_assert(static_cast<T>(0) > static_cast<T>(-1), "type should be signed");
 	// shift twice with -1 in between to avoid overflow
 	return
 		(static_cast<T>(1) << (sizeof(T) * 8 - 2)) - static_cast<T>(1) +
@@ -5760,11 +6055,20 @@ public:
 		nk_plot_function(&get_context(), type, userdata, value_getter, count, offset);
 	}
 
-	// F must satisfy: float (int index)
+	/**
+	 * @brief make a plot with the help of a function object
+	 * @tparam F function usable as `float (int index)`
+	 * @param type chart type
+	 * @param f function object returning values under specific indexes
+	 * @param count number of values
+	 * @param offset value that will be added to any index
+	 */
 	template <typename F>
-	void plot_function(nk_chart_type type, F&& f, int count, int offset) // TODO needs test and a trait
+	void plot_function(nk_chart_type type, F&& f, int count, int offset)
 	{
-		static_assert(!is_pointer<remove_reference_t<F>>::value, "pass a function, not a function pointer");
+		static_assert(!is_pointer<remove_reference_t<F>>::value, "pass a function object/reference, not a function pointer");
+		static_assert(is_invocable_r<float, F, int>::value, "function must satisfy float(int)");
+
 		auto value_getter = [](void* userdata, int index) -> float {
 			return (*static_cast<remove_reference_t<F>*>(userdata))(index);
 		};
@@ -5814,12 +6118,15 @@ public:
 		return nk_combo_callback(&get_context(), item_getter, userdata, selected, count, item_height, size);
 	}
 
-	template <typename F> // F has to have the form const char* (int index)
-	NUKLEUS_NODISCARD int combobox_callback(F item_getter, int selected, int count, int item_height, vec2<float> size)
+	template <typename F>
+	NUKLEUS_NODISCARD int combobox_callback(F&& item_getter, int selected, int count, int item_height, vec2<float> size)
 	{
+		static_assert(!is_pointer<remove_reference_t<F>>::value, "pass a function object/reference, not a function pointer");
+		static_assert(is_invocable_r<const char*, F, int>::value, "function must satisfy const char*(int)");
+
 		auto func = [](void* data, int index, const char** result)
 		{
-			*result = (*static_cast<F*>(data))(index); // TODO static_assert is_invokable
+			*result = (*static_cast<remove_reference_t<F>*>(data))(index);
 		};
 		return combobox_callback(func, &item_getter, selected, count, item_height, size);
 	}
@@ -5844,12 +6151,15 @@ public:
 		nk_combobox_callback(&get_context(), item_getter, userdata, &selected, count, item_height, size);
 	}
 
-	template <typename F> // F has to have the form const char* (int index)
-	void combobox_callback_in_place(F item_getter, int& selected, int count, int item_height, vec2<float> size)
+	template <typename F>
+	void combobox_callback_in_place(F&& item_getter, int& selected, int count, int item_height, vec2<float> size)
 	{
+		static_assert(!is_pointer<remove_reference_t<F>>::value, "pass a function object/reference, not a function pointer");
+		static_assert(is_invocable_r<const char*, F, int>::value, "function must satisfy const char*(int)");
+
 		auto func = [](void* data, int index, const char** result)
 		{
-			*result = (*static_cast<F*>(data))(index); // TODO static_assert is_invokable
+			*result = (*static_cast<remove_reference_t<F>*>(data))(index);
 		};
 		combobox_callback_in_place(func, &item_getter, selected, count, item_height, size);
 	}
