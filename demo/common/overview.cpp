@@ -37,7 +37,7 @@ void draw_menu(nk::window& win, bool& show_menu, bool& show_app_about)
 		static menu_state menu_state = MENU_NONE;
 
 		nk_collapse_states state = (menu_state == MENU_FILE) ? NK_MAXIMIZED : NK_MINIMIZED;
-		if (auto tree = win.tree_state_scoped(NK_TREE_TAB, "FILE", state)) {
+		if (auto tree = win.tree_state_scoped(nk::tree_type::tab, "FILE", state)) {
 			menu_state = MENU_FILE;
 			(void) menu.item_label("New", NK_TEXT_LEFT);
 			(void) menu.item_label("Open", NK_TEXT_LEFT);
@@ -47,7 +47,7 @@ void draw_menu(nk::window& win, bool& show_menu, bool& show_app_about)
 		} else menu_state = (menu_state == MENU_FILE) ? MENU_NONE : menu_state;
 
 		state = (menu_state == MENU_EDIT) ? NK_MAXIMIZED : NK_MINIMIZED;
-		if (auto tree = win.tree_state_scoped(NK_TREE_TAB, "EDIT", state)) {
+		if (auto tree = win.tree_state_scoped(nk::tree_type::tab, "EDIT", state)) {
 			menu_state = MENU_EDIT;
 			(void) menu.item_label("Copy", NK_TEXT_LEFT);
 			(void) menu.item_label("Delete", NK_TEXT_LEFT);
@@ -56,7 +56,7 @@ void draw_menu(nk::window& win, bool& show_menu, bool& show_app_about)
 		} else menu_state = (menu_state == MENU_EDIT) ? MENU_NONE : menu_state;
 
 		state = (menu_state == MENU_VIEW) ? NK_MAXIMIZED : NK_MINIMIZED;
-		if (auto tree = win.tree_state_scoped(NK_TREE_TAB, "VIEW", state)) {
+		if (auto tree = win.tree_state_scoped(nk::tree_type::tab, "VIEW", state)) {
 			menu_state = MENU_VIEW;
 			(void) menu.item_label("About", NK_TEXT_LEFT);
 			(void) menu.item_label("Options", NK_TEXT_LEFT);
@@ -64,12 +64,12 @@ void draw_menu(nk::window& win, bool& show_menu, bool& show_app_about)
 		} else menu_state = (menu_state == MENU_VIEW) ? MENU_NONE : menu_state;
 
 		state = (menu_state == MENU_CHART) ? NK_MAXIMIZED : NK_MINIMIZED;
-		if (auto tree = win.tree_state_scoped(NK_TREE_TAB, "CHART", state)) {
+		if (auto tree = win.tree_state_scoped(nk::tree_type::tab, "CHART", state)) {
 			const float values[] = {26.0f,13.0f,30.0f,15.0f,25.0f,10.0f,20.0f,40.0f,12.0f,8.0f,22.0f,28.0f};
 			menu_state = MENU_CHART;
 			win.layout_row_dynamic(150, 1);
 
-			auto chart = win.chart_scoped(NK_CHART_COLUMN, nk::ssize(values), 0, 50);
+			auto chart = win.chart_scoped(nk::chart_type::columns, nk::ssize(values), 0, 50);
 			for (int i = 0; i < nk::ssize(values); ++i)
 				(void) chart.push(values[i]);
 		} else menu_state = (menu_state == MENU_CHART) ? MENU_NONE : menu_state;
@@ -87,7 +87,7 @@ void draw_menu(nk::window& win, bool& show_menu, bool& show_app_about)
 
 void overview_widgets(nk::window& win)
 {
-	auto parent_tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Widgets", NK_MINIMIZED);
+	auto parent_tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Widgets", NK_MINIMIZED);
 	if (!parent_tree)
 		return;
 
@@ -99,7 +99,7 @@ void overview_widgets(nk::window& win)
 	static int option_left;
 	static int option_right;
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Text", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Text", NK_MINIMIZED))
 	{
 		/* Text Widgets */
 		win.layout_row_dynamic(20, 1);
@@ -116,38 +116,38 @@ void overview_widgets(nk::window& win)
 		win.label_wrap("This is another long text to show dynamic window changes on multiline text");
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Button", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Button", NK_MINIMIZED))
 	{
 		/* Buttons Widgets */
 		win.layout_row_static(30, 100, 3);
 		if (win.button_label("Button"))
 			fprintf(stdout, "Button pressed!\n");
-		win.button_set_behavior(NK_BUTTON_REPEATER);
+		win.button_set_behavior(nk::button_behavior::repeater);
 		if (win.button_label("Repeater"))
 			fprintf(stdout, "Repeater is being pressed!\n");
 		win.button_reset_behavior();
 		(void) win.button_color(nk::color(0, 0, 255));
 
 		win.layout_row_static(25, 25, 8);
-		(void) win.button_symbol(NK_SYMBOL_CIRCLE_SOLID);
-		(void) win.button_symbol(NK_SYMBOL_CIRCLE_OUTLINE);
-		(void) win.button_symbol(NK_SYMBOL_RECT_SOLID);
-		(void) win.button_symbol(NK_SYMBOL_RECT_OUTLINE);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_UP);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_UP_OUTLINE);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_DOWN);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_DOWN_OUTLINE);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_LEFT);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_LEFT_OUTLINE);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_RIGHT);
-		(void) win.button_symbol(NK_SYMBOL_TRIANGLE_RIGHT_OUTLINE);
+		(void) win.button_symbol(nk::symbol_type::circle_solid);
+		(void) win.button_symbol(nk::symbol_type::circle_outline);
+		(void) win.button_symbol(nk::symbol_type::rect_solid);
+		(void) win.button_symbol(nk::symbol_type::rect_outline);
+		(void) win.button_symbol(nk::symbol_type::triangle_up);
+		(void) win.button_symbol(nk::symbol_type::triangle_up_outline);
+		(void) win.button_symbol(nk::symbol_type::triangle_down);
+		(void) win.button_symbol(nk::symbol_type::triangle_down_outline);
+		(void) win.button_symbol(nk::symbol_type::triangle_left);
+		(void) win.button_symbol(nk::symbol_type::triangle_left_outline);
+		(void) win.button_symbol(nk::symbol_type::triangle_right);
+		(void) win.button_symbol(nk::symbol_type::triangle_right_outline);
 
 		win.layout_row_static(30, 100, 2);
-		(void) win.button_symbol_label(NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT);
-		(void) win.button_symbol_label(NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT);
+		(void) win.button_symbol_label(nk::symbol_type::triangle_left, "prev", NK_TEXT_RIGHT);
+		(void) win.button_symbol_label(nk::symbol_type::triangle_right, "next", NK_TEXT_LEFT);
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Basic", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Basic", NK_MINIMIZED))
 	{
 		/* Basic widgets */
 		static int int_slider = 5;
@@ -195,9 +195,9 @@ void overview_widgets(nk::window& win)
 
 		win.layout_row_static(40, ratio);
 		win.labelf(NK_TEXT_LEFT, "Knob int: %d", int_knob);
-		(void) win.knob_in_place(0, int_knob, 10, 1, NK_DOWN, 60.0f);
+		(void) win.knob_in_place(0, int_knob, 10, 1, nk::heading::down, 60.0f);
 		win.labelf(NK_TEXT_LEFT, "Knob float: %.2f", float_knob);
-		(void) win.knob_in_place(0, float_knob, 5.0, 0.5f, NK_DOWN, 60.0f);
+		(void) win.knob_in_place(0, float_knob, 5.0, 0.5f, nk::heading::down, 60.0f);
 
 		win.layout_row_static(25, ratio);
 		win.label("Property float:", NK_TEXT_LEFT);
@@ -223,7 +223,7 @@ void overview_widgets(nk::window& win)
 		win.property_in_place("##Hidden Label", range_int_min, range_int_value_hidden, INT_MAX, 1, 10);
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Inactive", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Inactive", NK_MINIMIZED))
 	{
 		static bool inactive = 1;
 		win.layout_row_dynamic(30, 1);
@@ -236,9 +236,9 @@ void overview_widgets(nk::window& win)
 			fprintf(stdout, "button pressed\n");
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Selectable", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Selectable", NK_MINIMIZED))
 	{
-		if (auto t = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "List", NK_MINIMIZED))
+		if (auto t = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "List", NK_MINIMIZED))
 		{
 			static bool selected[4] = {false, false, true, false};
 			win.layout_row_static(18, 100, 1);
@@ -249,7 +249,7 @@ void overview_widgets(nk::window& win)
 			(void) win.selectable_label_in_place("Selectable", NK_TEXT_LEFT, selected[3]);
 		}
 
-		if (auto t = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Grid", NK_MINIMIZED))
+		if (auto t = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Grid", NK_MINIMIZED))
 		{
 			static bool selected[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
 			win.layout_row_static(50, 50, 4);
@@ -265,7 +265,7 @@ void overview_widgets(nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Combo", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Combo", NK_MINIMIZED))
 	{
 		/* Combobox Widgets
 		 * In this library comboboxes are not limited to being a popup
@@ -324,7 +324,7 @@ void overview_widgets(nk::window& win)
 			enum color_mode {COL_RGB, COL_HSV};
 			static int col_mode = COL_RGB;
 			win.layout_row_dynamic(120, 1);
-			combo_color2 = win.color_picker(combo_color2, NK_RGBA);
+			combo_color2 = win.color_picker_rgba(combo_color2);
 
 			win.layout_row_dynamic(25, 2);
 			col_mode = win.option_label("RGB", col_mode == COL_RGB) ? COL_RGB : col_mode;
@@ -385,7 +385,7 @@ void overview_widgets(nk::window& win)
 		if (auto combo = win.combo_label_scoped(buffer, {200, 250})) {
 			static const float values[] = {26.0f, 13.0f, 30.0f, 15.0f, 25.0f, 10.0f, 20.0f, 40.0f, 12.0f, 8.0f, 22.0f, 28.0f, 5.0f};
 			win.layout_row_dynamic(150, 1);
-			if (auto chart = win.chart_scoped(NK_CHART_COLUMN, nk::ssize(values), 0, 50))
+			if (auto chart = win.chart_scoped(nk::chart_type::columns, nk::ssize(values), 0, 50))
 				for (size_t i = 0; i < nk::size(values); ++i) {
 					nk_flags res = chart.push(values[i]);
 					if (res & NK_CHART_CLICKED) {
@@ -441,7 +441,7 @@ void overview_widgets(nk::window& win)
 				{
 					auto row = win.layout_row_dynamic_scoped(20, 3);
 					row.push(0.05f);
-					if (win.button_symbol(NK_SYMBOL_TRIANGLE_LEFT)) {
+					if (win.button_symbol(nk::symbol_type::triangle_left)) {
 						if (sel_date.tm_mon == 0) {
 							sel_date.tm_mon = 11;
 							sel_date.tm_year = NK_MAX(0, sel_date.tm_year - 1);
@@ -451,7 +451,7 @@ void overview_widgets(nk::window& win)
 					sprintf(buffer, "%s %d", month[sel_date.tm_mon], year);
 					win.label(buffer, NK_TEXT_CENTERED);
 					row.push(0.05f);
-					if (win.button_symbol(NK_SYMBOL_TRIANGLE_RIGHT)) {
+					if (win.button_symbol(nk::symbol_type::triangle_right)) {
 						if (sel_date.tm_mon == 11) {
 							sel_date.tm_mon = 0;
 							sel_date.tm_year++;
@@ -488,7 +488,7 @@ void overview_widgets(nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Input", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Input", NK_MINIMIZED))
 	{
 		static const float ratio[] = {120, 150};
 		static char field_buffer[64];
@@ -542,7 +542,7 @@ void overview_widgets(nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Horizontal Rule", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Horizontal Rule", NK_MINIMIZED))
 	{
 		win.layout_row_dynamic(12, 1);
 		win.label("Use this to subdivide spaces visually", NK_TEXT_LEFT);
@@ -555,7 +555,7 @@ void overview_widgets(nk::window& win)
 
 void overview_chart(nk::window& win)
 {
-	auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Chart", NK_MINIMIZED);
+	auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Chart", NK_MINIMIZED);
 	if (!tree)
 		return;
 
@@ -583,7 +583,7 @@ void overview_chart(nk::window& win)
 	win.layout_row_dynamic(100, 1);
 	win.get_context().style.chart.show_markers = show_markers;
 
-	if (auto chart = win.chart_scoped(NK_CHART_LINES, 32, -1.0f, 1.0f)) {
+	if (auto chart = win.chart_scoped(nk::chart_type::lines, 32, -1.0f, 1.0f)) {
 		for (int i = 0; i < 32; ++i) {
 			nk_flags res = chart.push(cosf(id));
 			if (res & NK_CHART_HOVERING)
@@ -604,7 +604,7 @@ void overview_chart(nk::window& win)
 
 	/* column chart */
 	win.layout_row_dynamic(100, 1);
-	if (auto chart = win.chart_scoped(NK_CHART_COLUMN, 32, 0.0f, 1.0f)) {
+	if (auto chart = win.chart_scoped(nk::chart_type::columns, 32, 0.0f, 1.0f)) {
 		for (int i = 0; i < 32; ++i) {
 			nk_flags res = chart.push(fabs(sinf(id)));
 			if (res & NK_CHART_HOVERING)
@@ -624,9 +624,9 @@ void overview_chart(nk::window& win)
 
 	/* mixed chart */
 	win.layout_row_dynamic(100, 1);
-	if (auto chart = win.chart_scoped(NK_CHART_COLUMN, 32, 0.0f, 1.0f)) {
-		chart.add_slot(NK_CHART_LINES, 32, -1.0f, 1.0f);
-		chart.add_slot(NK_CHART_LINES, 32, -1.0f, 1.0f);
+	if (auto chart = win.chart_scoped(nk::chart_type::columns, 32, 0.0f, 1.0f)) {
+		chart.add_slot(nk::chart_type::lines, 32, -1.0f, 1.0f);
+		chart.add_slot(nk::chart_type::lines, 32, -1.0f, 1.0f);
 		id = 0;
 		for (int i = 0; i < 32; ++i) {
 			(void) chart.push_slot(fabs(sinf(id)), 0);
@@ -638,9 +638,9 @@ void overview_chart(nk::window& win)
 
 	/* mixed colored chart */
 	win.layout_row_dynamic(100, 1);
-	if (auto chart = win.chart_colored_scoped(NK_CHART_LINES, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
-		chart.add_slot_colored(NK_CHART_LINES, nk::color(0, 0, 255), nk::color(0, 0, 150), 32, -1.0f, 1.0f);
-		chart.add_slot_colored(NK_CHART_LINES, nk::color(0, 255, 0), nk::color(0, 150, 0), 32, -1.0f, 1.0f);
+	if (auto chart = win.chart_colored_scoped(nk::chart_type::lines, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
+		chart.add_slot_colored(nk::chart_type::lines, nk::color(0, 0, 255), nk::color(0, 0, 150), 32, -1.0f, 1.0f);
+		chart.add_slot_colored(nk::chart_type::lines, nk::color(0, 255, 0), nk::color(0, 150, 0), 32, -1.0f, 1.0f);
 		id = 0;
 		for (int i = 0; i < 32; ++i) {
 			(void) chart.push_slot(fabs(sinf(id)), 0);
@@ -712,7 +712,7 @@ void overview_popup(nk::window& win, bool& show_menu, bool& show_app_about)
 
 	if (popup_active)
 	{
-		if (auto popup = win.popup_scoped(NK_POPUP_STATIC, "Error", 0, {20, 100, 220, 90}))
+		if (auto popup = win.popup_static_scoped("Error", 0, {20, 100, 220, 90}))
 		{
 			win.layout_row_dynamic(25, 1);
 			win.label("A terrible error has occurred", NK_TEXT_LEFT);
@@ -743,7 +743,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 	if (!parent_tree)
 		return;
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Widget", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Widget", NK_MINIMIZED))
 	{
 		win.layout_row_dynamic(30, 1);
 		win.label("Dynamic fixed column layout with generated position and size:", NK_TEXT_LEFT);
@@ -824,7 +824,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		(void) win.button_label("button");
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Group", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Group", NK_MINIMIZED))
 	{
 		static bool group_titlebar = false;
 		static bool group_border = true;
@@ -861,11 +861,11 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Tree", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Tree", NK_MINIMIZED))
 	{
 		static bool root_selected = false;
 		bool sel = root_selected;
-		if (auto t1 = NUKLEUS_TREE_ELEMENT_SCOPED(win, NK_TREE_NODE, "Root", NK_MINIMIZED, sel)) {
+		if (auto t1 = NUKLEUS_TREE_ELEMENT_SCOPED(win, nk::tree_type::node, "Root", NK_MINIMIZED, sel)) {
 			static bool selected[8];
 			bool node_select = selected[0];
 			if (sel != root_selected) {
@@ -873,7 +873,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 				for (int i = 0; i < 8; ++i)
 					selected[i] = sel;
 			}
-			if (auto t2 = NUKLEUS_TREE_ELEMENT_SCOPED(win, NK_TREE_NODE, "Node", NK_MINIMIZED, node_select)) {
+			if (auto t2 = NUKLEUS_TREE_ELEMENT_SCOPED(win, nk::tree_type::node, "Node", NK_MINIMIZED, node_select)) {
 				static bool sel_nodes[4];
 				if (node_select != selected[0]) {
 					selected[0] = node_select;
@@ -883,16 +883,16 @@ void overview_layout(nk::context& ctx, nk::window& win)
 				win.layout_row_static(18, 100, 1);
 				for (int j = 0; j < 4; ++j)
 					(void) win.selectable_symbol_label_in_place(
-						NK_SYMBOL_CIRCLE_SOLID, sel_nodes[j] ? "Selected" : "Unselected", NK_TEXT_RIGHT, sel_nodes[j]);
+						nk::symbol_type::circle_solid, sel_nodes[j] ? "Selected" : "Unselected", NK_TEXT_RIGHT, sel_nodes[j]);
 			}
 			win.layout_row_static(18, 100, 1);
 			for (int i = 1; i < 8; ++i)
 				(void) win.selectable_symbol_label_in_place(
-					NK_SYMBOL_CIRCLE_SOLID, selected[i] ? "Selected" : "Unselected", NK_TEXT_RIGHT, selected[i]);
+					nk::symbol_type::circle_solid, selected[i] ? "Selected" : "Unselected", NK_TEXT_RIGHT, selected[i]);
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Notebook", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Notebook", NK_MINIMIZED))
 	{
 		static int current_tab = 0;
 		float step = (2 * 3.141592654f) / 32;
@@ -930,7 +930,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 
 		/* Body */
 		auto layout = win.layout_row_dynamic(140, 1);
-		if (auto group = layout.group_scoped("Notebook", NK_WINDOW_BORDER))
+		if (auto group = layout.group_scoped("Notebook", nk::panel_flags::border))
 		{
 			style_vec2.reset(); // intentionally reset an override before its destruction
 			switch (current_tab) {
@@ -938,8 +938,8 @@ void overview_layout(nk::context& ctx, nk::window& win)
 				break;
 			case CHART_LINE:
 				win.layout_row_dynamic(100, 1);
-				if (auto chart = win.chart_colored_scoped(NK_CHART_LINES, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
-					chart.add_slot_colored(NK_CHART_LINES, nk::color(0, 0, 255), nk::color(0, 0, 150), 32, -1.0f, 1.0f);
+				if (auto chart = win.chart_colored_scoped(nk::chart_type::lines, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
+					chart.add_slot_colored(nk::chart_type::lines, nk::color(0, 0, 255), nk::color(0, 0, 150), 32, -1.0f, 1.0f);
 					float id = 0;
 					for (int i = 0; i < 32; ++i) {
 						(void) chart.push_slot(fabs(sinf(id)), 0);
@@ -950,7 +950,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 				break;
 			case CHART_HISTO:
 				win.layout_row_dynamic(100, 1);
-				if (auto chart = win.chart_colored_scoped(NK_CHART_COLUMN, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
+				if (auto chart = win.chart_colored_scoped(nk::chart_type::columns, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
 					float id = 0;
 					for (int i = 0; i < 32; ++i) {
 						(void) chart.push_slot(fabs(sinf(id)), 0);
@@ -960,9 +960,9 @@ void overview_layout(nk::context& ctx, nk::window& win)
 				break;
 			case CHART_MIXED:
 				win.layout_row_dynamic(100, 1);
-				if (auto chart = win.chart_colored_scoped(NK_CHART_LINES, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
-					chart.add_slot_colored(NK_CHART_LINES, nk::color(0, 0, 255), nk::color(0, 0, 150), 32, -1.0f, 1.0f);
-					chart.add_slot_colored(NK_CHART_COLUMN, nk::color(0, 255, 0), nk::color(0, 150, 0), 32, 0.0f, 1.0f);
+				if (auto chart = win.chart_colored_scoped(nk::chart_type::lines, nk::color(255, 0, 0), nk::color(150, 0, 0), 32, 0.0f, 1.0f)) {
+					chart.add_slot_colored(nk::chart_type::lines,   nk::color(0, 0, 255), nk::color(0, 0, 150), 32, -1.0f, 1.0f);
+					chart.add_slot_colored(nk::chart_type::columns, nk::color(0, 255, 0), nk::color(0, 150, 0), 32, 0.0f, 1.0f);
 					float id = 0;
 					for (int i = 0; i < 32; ++i) {
 						(void) chart.push_slot(fabs(sinf(id)), 0);
@@ -976,10 +976,10 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Simple", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Simple", NK_MINIMIZED))
 	{
 		auto layout = win.layout_row_dynamic(300, 2);
-		if (auto group = layout.group_scoped("Group_Without_Border", 0)) {
+		if (auto group = layout.group_scoped("Group_Without_Border")) {
 			win.layout_row_static(18, 150, 1);
 			for (int i = 0; i < 64; ++i) {
 				char buffer[64];
@@ -987,7 +987,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 				win.labelf(NK_TEXT_LEFT, "%s: scrollable region", buffer);
 			}
 		}
-		if (auto group = layout.group_scoped("Group_With_Border", NK_WINDOW_BORDER)) {
+		if (auto group = layout.group_scoped("Group_With_Border", nk::panel_flags::border)) {
 			win.layout_row_dynamic(25, 2);
 			for (int i = 0; i < 64; ++i) {
 				char buffer[64];
@@ -997,11 +997,11 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Complex", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Complex", NK_MINIMIZED))
 	{
 		auto layout_space = win.layout_space_static_scoped(500, 64);
 		layout_space.push({0, 0, 150, 500});
-		if (auto group = layout_space.group_scoped("Group_left", NK_WINDOW_BORDER)) {
+		if (auto group = layout_space.group_scoped("Group_left", nk::panel_flags::border)) {
 			static bool selected[32];
 			win.layout_row_static(18, 100, 1);
 			for (int i = 0; i < 32; ++i)
@@ -1009,7 +1009,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 
 		layout_space.push({160, 0, 150, 240});
-		if (auto group = layout_space.group_scoped("Group_top", NK_WINDOW_BORDER)) {
+		if (auto group = layout_space.group_scoped("Group_top", nk::panel_flags::border)) {
 			win.layout_row_dynamic(25, 1);
 			(void) win.button_label("#FFAA");
 			(void) win.button_label("#FFBB");
@@ -1020,7 +1020,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 
 		layout_space.push({160, 250, 150, 250});
-		if (auto group = layout_space.group_scoped("Group_buttom", NK_WINDOW_BORDER)) {
+		if (auto group = layout_space.group_scoped("Group_buttom", nk::panel_flags::border)) {
 			win.layout_row_dynamic(25, 1);
 			(void) win.button_label("#FFAA");
 			(void) win.button_label("#FFBB");
@@ -1031,7 +1031,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 
 		layout_space.push({320, 0, 150, 150});
-		if (auto group = layout_space.group_scoped("Group_right_top", NK_WINDOW_BORDER)) {
+		if (auto group = layout_space.group_scoped("Group_right_top", nk::panel_flags::border)) {
 			static bool selected[4];
 			win.layout_row_static(18, 100, 1);
 			for (int i = 0; i < 4; ++i)
@@ -1039,7 +1039,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 
 		layout_space.push({320, 160, 150, 150});
-		if (auto group = layout_space.group_scoped("Group_right_center", NK_WINDOW_BORDER)) {
+		if (auto group = layout_space.group_scoped("Group_right_center", nk::panel_flags::border)) {
 			static bool selected[4];
 			win.layout_row_static(18, 100, 1);
 			for (int i = 0; i < 4; ++i)
@@ -1047,7 +1047,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 
 		layout_space.push({320, 320, 150, 150});
-		if (auto group = layout_space.group_scoped("Group_right_bottom", NK_WINDOW_BORDER)) {
+		if (auto group = layout_space.group_scoped("Group_right_bottom", nk::panel_flags::border)) {
 			static bool selected[4];
 			win.layout_row_static(18, 100, 1);
 			for (int i = 0; i < 4; ++i)
@@ -1055,13 +1055,13 @@ void overview_layout(nk::context& ctx, nk::window& win)
 		}
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Splitter", NK_MINIMIZED))
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Splitter", NK_MINIMIZED))
 	{
 		win.layout_row_static(20, 320, 1);
 		win.label("Use slider and spinner to change tile size", NK_TEXT_LEFT);
 		win.label("Drag the space between tiles to change tile ratio", NK_TEXT_LEFT);
 
-		if (auto tr = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Vertical", NK_MINIMIZED))
+		if (auto tr = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Vertical", NK_MINIMIZED))
 		{
 			static float a = 100, b = 100, c = 100;
 			float row_layout[5];
@@ -1141,7 +1141,7 @@ void overview_layout(nk::context& ctx, nk::window& win)
 			}
 		}
 
-		if (auto tr = NUKLEUS_TREE_SCOPED(win, NK_TREE_NODE, "Horizontal", NK_MINIMIZED))
+		if (auto tr = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Horizontal", NK_MINIMIZED))
 		{
 			static float a = 100, b = 100, c = 100;
 
@@ -1257,7 +1257,7 @@ bool overview(nk::context& ctx)
 		if (show_app_about)
 		{
 			/* about popup */
-			if (auto popup = win.popup_scoped(NK_POPUP_STATIC, "About", NK_WINDOW_CLOSABLE, {20, 100, 300, 190}))
+			if (auto popup = win.popup_static_scoped("About", NK_WINDOW_CLOSABLE, {20, 100, 300, 190}))
 			{
 				win.layout_row_dynamic(20, 1);
 				win.label("Nuklear", NK_TEXT_LEFT);

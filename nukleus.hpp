@@ -759,17 +759,300 @@ using uint = nk_uint;
 using ushort = nk_ushort;
 using handle = nk_handle;
 
-using color_format = nk_color_format;
 using image = struct nk_image;
 using nine_slice = nk_nine_slice;
-using symbol_type = nk_symbol_type;
-using heading = nk_heading;
 
-using widget_layout_states = nk_widget_layout_states;
-using buttons = nk_buttons;
-using text_align = nk_text_align;
 using style_button = nk_style_button;
-using button_behavior = enum nk_button_behavior;
+
+#define DEFINE_ENUM_CLASS_FUNCTIONS_BOOL(NkEnumType, value_false, value_true) \
+	constexpr NkEnumType to_##NkEnumType(bool value) \
+	{ \
+		return value ? value_true : value_false; \
+	} \
+	constexpr bool from_##NkEnumType(NkEnumType value) \
+	{ \
+		return value == value_true; \
+	}
+
+#define DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(NkEnumType, EnumType) \
+	constexpr NkEnumType to_nk_enum(EnumType value) \
+	{ \
+		return static_cast<NkEnumType>(value); \
+	} \
+	constexpr EnumType from_nk_enum(NkEnumType value) \
+	{ \
+		return static_cast<EnumType>(value); \
+	}
+
+#define DEFINE_ENUM_CLASS_FUNCTIONS_BITWISE(EnumType) \
+	constexpr EnumType operator|(EnumType lhs, EnumType rhs) { \
+		return static_cast<EnumType>( \
+			static_cast<nk_flags>(lhs) | \
+			static_cast<nk_flags>(rhs)); \
+	} \
+	constexpr EnumType operator&(EnumType lhs, EnumType rhs) { \
+		return static_cast<EnumType>( \
+			static_cast<nk_flags>(lhs) & \
+			static_cast<nk_flags>(rhs)); \
+	} \
+	constexpr EnumType operator^(EnumType lhs, EnumType rhs) { \
+		return static_cast<EnumType>( \
+			static_cast<nk_flags>(lhs) ^ \
+			static_cast<nk_flags>(rhs)); \
+	} \
+	constexpr EnumType operator~(EnumType value) { \
+		return static_cast<EnumType>(~static_cast<nk_flags>(value)); \
+	} \
+	inline NUKLEUS_CPP14_CONSTEXPR EnumType& operator|=(EnumType& lhs, EnumType rhs) { \
+		return lhs = static_cast<EnumType>( \
+			static_cast<nk_flags>(lhs) |  \
+			static_cast<nk_flags>(rhs));  \
+	} \
+	inline NUKLEUS_CPP14_CONSTEXPR EnumType& operator&=(EnumType& lhs, EnumType rhs) { \
+		return lhs = static_cast<EnumType>( \
+			static_cast<nk_flags>(lhs) & \
+			static_cast<nk_flags>(rhs)); \
+	} \
+	inline NUKLEUS_CPP14_CONSTEXPR EnumType& operator^=(EnumType& lhs, EnumType rhs) { \
+		return lhs = static_cast<EnumType>( \
+			static_cast<nk_flags>(lhs) ^ \
+			static_cast<nk_flags>(rhs)); \
+	}
+
+#define DEFINE_ENUM_CLASS_FUNCTIONS_FLAGS(NkEnumType, EnumType) \
+	DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(NkEnumType, EnumType) \
+	DEFINE_ENUM_CLASS_FUNCTIONS_BITWISE(EnumType) \
+	constexpr nk_flags to_nk_flags(EnumType value) \
+	{ \
+		return static_cast<nk_flags>(value); \
+	}
+
+template <typename Enum>
+constexpr Enum from_nk_flags(nk_flags value)
+{
+	return static_cast<Enum>(value);
+}
+
+enum class convert_result_flags : nk_flags
+{
+	success             = NK_CONVERT_SUCCESS,
+	invalid_param       = NK_CONVERT_INVALID_PARAM,
+	command_buffer_full = NK_CONVERT_COMMAND_BUFFER_FULL,
+	vertex_buffer_full  = NK_CONVERT_VERTEX_BUFFER_FULL,
+	element_buffer_full = NK_CONVERT_ELEMENT_BUFFER_FULL,
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_FLAGS(nk_convert_result, convert_result_flags)
+
+enum class panel_flags : nk_flags
+{
+	none = 0,
+	border           = NK_WINDOW_BORDER,           ///< Draws a border around the window to visually separate window from the background
+	movable          = NK_WINDOW_MOVABLE,          ///< The movable flag indicates that a window can be moved by user input or by dragging the window header
+	scalable         = NK_WINDOW_SCALABLE,         ///< The scalable flag indicates that a window can be scaled by user input by dragging a scaler icon at the button of the window
+	closable         = NK_WINDOW_CLOSABLE,         ///< Adds a closable icon into the header
+	minimizable      = NK_WINDOW_MINIMIZABLE,      ///< Adds a minimize icon into the header
+	no_scrollbar     = NK_WINDOW_NO_SCROLLBAR,     ///< Removes the scrollbar from the window
+	title            = NK_WINDOW_TITLE,            ///< Forces a header at the top at the window showing the title
+	scroll_auto_hide = NK_WINDOW_SCROLL_AUTO_HIDE, ///< Automatically hides the window scrollbar if no user interaction: also requires delta time in context to be set each frame
+	background       = NK_WINDOW_BACKGROUND,       ///< Always keep window in the background
+	scale_left       = NK_WINDOW_SCALE_LEFT,       ///< Puts window scaler in the left-bottom corner instead right-bottom
+	no_input         = NK_WINDOW_NO_INPUT,         ///< Prevents window of scaling, moving or getting focus
+
+	default_group_flags = none
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_FLAGS(nk_panel_flags, panel_flags)
+
+enum class window_flags : nk_flags
+{
+	border           = NK_WINDOW_BORDER,           ///< @copydoc panel_flags::border
+	movable          = NK_WINDOW_MOVABLE,          ///< @copydoc panel_flags::moveable
+	scalable         = NK_WINDOW_SCALABLE,         ///< @copydoc panel_flags::scalable
+	closable         = NK_WINDOW_CLOSABLE,         ///< @copydoc panel_flags::closable
+	minimizable      = NK_WINDOW_MINIMIZABLE,      ///< @copydoc panel_flags::minimizable
+	no_scrollbar     = NK_WINDOW_NO_SCROLLBAR,     ///< @copydoc panel_flags::no_scrollbar
+	title            = NK_WINDOW_TITLE,            ///< @copydoc panel_flags::title
+	scroll_auto_hide = NK_WINDOW_SCROLL_AUTO_HIDE, ///< @copydoc panel_flags::scroll_auto_hide
+	background       = NK_WINDOW_BACKGROUND,       ///< @copydoc panel_flags::background
+	scale_left       = NK_WINDOW_SCALE_LEFT,       ///< @copydoc panel_flags::scale_left
+	no_input         = NK_WINDOW_NO_INPUT,         ///< @copydoc panel_flags::no_input
+	private_         = NK_WINDOW_PRIVATE,          ///< Same as `dynamic`
+	dynamic          = NK_WINDOW_DYNAMIC,          ///< Special window type growing up in height while being filled to a certain maximum height
+	rom              = NK_WINDOW_ROM,              ///< Sets window widgets into a read only mode and does not allow input changes
+	not_interactive  = NK_WINDOW_NOT_INTERACTIVE,  ///< Prevents all interaction caused by input to either window or widgets inside
+	hidden           = NK_WINDOW_HIDDEN,           ///< Hides window and stops any window interaction and drawing
+	closed           = NK_WINDOW_CLOSED,           ///< Directly closes and frees the window at the end of the frame
+	minimized        = NK_WINDOW_MINIMIZED,        ///< Marks the window as minimized
+	remove_rom       = NK_WINDOW_REMOVE_ROM,       ///< Removes read only mode at the end of the window
+
+	default_window_flags = border | movable | scalable | closable | minimizable | title
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_FLAGS(nk_window_flags, window_flags)
+
+enum class keys : int
+{
+	none = NK_KEY_NONE,
+	shift = NK_KEY_SHIFT,
+	ctrl = NK_KEY_CTRL,
+	del = NK_KEY_DEL,
+	enter = NK_KEY_ENTER,
+	tab = NK_KEY_TAB,
+	backspace = NK_KEY_BACKSPACE,
+	copy = NK_KEY_COPY,
+	cut = NK_KEY_CUT,
+	paste = NK_KEY_PASTE,
+	up = NK_KEY_UP,
+	down = NK_KEY_DOWN,
+	left = NK_KEY_LEFT,
+	right = NK_KEY_RIGHT,
+	/* Shortcuts: text field */
+	text_insert_mode = NK_KEY_TEXT_INSERT_MODE,
+	text_replace_mode = NK_KEY_TEXT_REPLACE_MODE,
+	text_reset_mode = NK_KEY_TEXT_RESET_MODE,
+	text_line_start = NK_KEY_TEXT_LINE_START,
+	text_line_end = NK_KEY_TEXT_LINE_END,
+	text_start = NK_KEY_TEXT_START,
+	text_end = NK_KEY_TEXT_END,
+	text_undo = NK_KEY_TEXT_UNDO,
+	text_redo = NK_KEY_TEXT_REDO,
+	text_select_all = NK_KEY_TEXT_SELECT_ALL,
+	text_word_left = NK_KEY_TEXT_WORD_LEFT,
+	text_word_right = NK_KEY_TEXT_WORD_RIGHT,
+	/* Shortcuts: scrollbar */
+	scroll_start = NK_KEY_SCROLL_START,
+	scroll_end = NK_KEY_SCROLL_END,
+	scroll_down = NK_KEY_SCROLL_DOWN,
+	scroll_up = NK_KEY_SCROLL_UP,
+	max = NK_KEY_MAX
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_keys, keys)
+
+enum class buttons : int
+{
+	left = NK_BUTTON_LEFT,
+	middle = NK_BUTTON_MIDDLE,
+	right = NK_BUTTON_RIGHT,
+	double_ = NK_BUTTON_DOUBLE,
+	max = NK_BUTTON_MAX
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_buttons, buttons)
+
+enum class heading : int
+{
+	up = NK_UP,
+	right = NK_RIGHT,
+	down = NK_DOWN,
+	left = NK_LEFT
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_heading, heading)
+
+enum class button_behavior : int
+{
+	default_ = NK_BUTTON_DEFAULT,
+	repeater = NK_BUTTON_REPEATER
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(enum nk_button_behavior, button_behavior)
+
+enum class chart_type : int
+{
+	lines = NK_CHART_LINES,
+	columns = NK_CHART_COLUMN,
+	max = NK_CHART_MAX
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_chart_type, chart_type)
+
+enum class tree_type : int
+{
+	node = NK_TREE_NODE,
+	tab = NK_TREE_TAB
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_tree_type, tree_type)
+
+enum class symbol_type : int
+{
+	none = NK_SYMBOL_NONE,
+	x = NK_SYMBOL_X,
+	underscore = NK_SYMBOL_UNDERSCORE,
+	circle_solid = NK_SYMBOL_CIRCLE_SOLID,
+	circle_outline = NK_SYMBOL_CIRCLE_OUTLINE,
+	rect_solid = NK_SYMBOL_RECT_SOLID,
+	rect_outline = NK_SYMBOL_RECT_OUTLINE,
+	triangle_up = NK_SYMBOL_TRIANGLE_UP,
+	triangle_down = NK_SYMBOL_TRIANGLE_DOWN,
+	triangle_left = NK_SYMBOL_TRIANGLE_LEFT,
+	triangle_right = NK_SYMBOL_TRIANGLE_RIGHT,
+	plus = NK_SYMBOL_PLUS,
+	minus = NK_SYMBOL_MINUS,
+	triangle_up_outline = NK_SYMBOL_TRIANGLE_UP_OUTLINE,
+	triangle_down_outline = NK_SYMBOL_TRIANGLE_DOWN_OUTLINE,
+	triangle_left_outline = NK_SYMBOL_TRIANGLE_LEFT_OUTLINE,
+	triangle_right_outline = NK_SYMBOL_TRIANGLE_RIGHT_OUTLINE,
+	max = NK_SYMBOL_MAX
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_symbol_type, symbol_type)
+
+enum class widget_layout_states : int
+{
+	invalid  = NK_WIDGET_INVALID, ///< The widget cannot be seen and is completely out of view
+	valid    = NK_WIDGET_VALID,   ///< The widget is completely inside the window and can be updated and drawn
+	rom      = NK_WIDGET_ROM,     ///< The widget is partially visible and cannot be updated
+	disabled = NK_WIDGET_DISABLED ///< The widget is manually disabled and acts like `rom`
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_widget_layout_states, widget_layout_states)
+
+enum class style_colors : int
+{
+	text = NK_COLOR_TEXT,
+	window = NK_COLOR_WINDOW,
+	header = NK_COLOR_HEADER,
+	border = NK_COLOR_BORDER,
+	button = NK_COLOR_BUTTON,
+	button_hover = NK_COLOR_BUTTON_HOVER,
+	button_active = NK_COLOR_BUTTON_ACTIVE,
+	toggle = NK_COLOR_TOGGLE,
+	toggle_hover = NK_COLOR_TOGGLE_HOVER,
+	toggle_cursor = NK_COLOR_TOGGLE_CURSOR,
+	select = NK_COLOR_SELECT,
+	select_active = NK_COLOR_SELECT_ACTIVE,
+	slider = NK_COLOR_SLIDER,
+	slider_cursor = NK_COLOR_SLIDER_CURSOR,
+	slider_cursor_hover = NK_COLOR_SLIDER_CURSOR_HOVER,
+	slider_cursor_active = NK_COLOR_SLIDER_CURSOR_ACTIVE,
+	property = NK_COLOR_PROPERTY,
+	edit = NK_COLOR_EDIT,
+	edit_cursor = NK_COLOR_EDIT_CURSOR,
+	combo = NK_COLOR_COMBO,
+	chart = NK_COLOR_CHART,
+	chart_color = NK_COLOR_CHART_COLOR,
+	chart_color_highlight = NK_COLOR_CHART_COLOR_HIGHLIGHT,
+	scrollbar = NK_COLOR_SCROLLBAR,
+	scrollbar_cursor = NK_COLOR_SCROLLBAR_CURSOR,
+	scrollbar_cursor_hover = NK_COLOR_SCROLLBAR_CURSOR_HOVER,
+	scrollbar_cursor_active = NK_COLOR_SCROLLBAR_CURSOR_ACTIVE,
+	tab_header = NK_COLOR_TAB_HEADER,
+	knob = NK_COLOR_KNOB,
+	knob_cursor = NK_COLOR_KNOB_CURSOR,
+	knob_cursor_hover = NK_COLOR_KNOB_CURSOR_HOVER,
+	knob_cursor_active = NK_COLOR_KNOB_CURSOR_ACTIVE,
+	count = NK_COLOR_COUNT
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_style_colors, style_colors)
+
+enum class style_cursor : int
+{
+	arrow = NK_CURSOR_ARROW,
+	text = NK_CURSOR_TEXT,
+	move = NK_CURSOR_MOVE,
+	resize_vertical = NK_CURSOR_RESIZE_VERTICAL,
+	resize_horizontal = NK_CURSOR_RESIZE_HORIZONTAL,
+	resize_top_left_down_right = NK_CURSOR_RESIZE_TOP_LEFT_DOWN_RIGHT,
+	resize_top_right_down_left = NK_CURSOR_RESIZE_TOP_RIGHT_DOWN_LEFT,
+	count = NK_CURSOR_COUNT
+};
+DEFINE_ENUM_CLASS_FUNCTIONS_ENUM(nk_style_cursor, style_cursor)
+
+DEFINE_ENUM_CLASS_FUNCTIONS_BOOL(nk_collapse_states, NK_MINIMIZED, NK_MAXIMIZED)
+DEFINE_ENUM_CLASS_FUNCTIONS_BOOL(nk_show_states, NK_HIDDEN, NK_SHOWN)
+DEFINE_ENUM_CLASS_FUNCTIONS_BOOL(nk_anti_aliasing, NK_ANTI_ALIASING_OFF, NK_ANTI_ALIASING_ON)
 
 /// @} // types
 
@@ -883,7 +1166,7 @@ struct triangle
 inline triangle<float> triangle_from_direction(rect<float> r, float pad_x, float pad_y, heading direction)
 {
 	struct nk_vec2 result[3];
-	nk_triangle_from_direction(result, r, pad_x, pad_y, direction);
+	nk_triangle_from_direction(result, r, pad_x, pad_y, to_nk_enum(direction));
 	return {result[0], result[1], result[2]};
 }
 
@@ -1276,11 +1559,21 @@ public:
 		return m_table[color_index];
 	}
 
+	nk_color& operator[](style_colors color_index)
+	{
+		return operator[](to_nk_enum(color_index));
+	}
+
 	nk_color operator[](nk_style_colors color_index) const
 	{
 		NUKLEUS_ASSERT(color_index < NK_COLOR_COUNT);
 		NUKLEUS_ASSERT(color_index >= 0);
 		return m_table[color_index];
+	}
+
+	nk_color operator[](style_colors color_index) const
+	{
+		return operator[](to_nk_enum(color_index));
 	}
 
 	      nk_color* get()       { return m_table; }
@@ -2232,19 +2525,34 @@ public:
 		return nk_buffer_total(&m_buffer);
 	}
 
-	void push(nk_buffer_allocation_type type, const void* memory, nk_size size, nk_size align)
+	void push_front(const void* memory, nk_size size, nk_size align)
 	{
-		nk_buffer_push(&m_buffer, type, memory, size, align);
+		nk_buffer_push(&m_buffer, NK_BUFFER_FRONT, memory, size, align);
 	}
 
-	void mark(nk_buffer_allocation_type type)
+	void push_back(const void* memory, nk_size size, nk_size align)
 	{
-		nk_buffer_mark(&m_buffer, type);
+		nk_buffer_push(&m_buffer, NK_BUFFER_BACK, memory, size, align);
 	}
 
-	void reset(nk_buffer_allocation_type type)
+	void mark_front()
 	{
-		nk_buffer_reset(&m_buffer, type);
+		nk_buffer_mark(&m_buffer, NK_BUFFER_FRONT);
+	}
+
+	void mark_back()
+	{
+		nk_buffer_mark(&m_buffer, NK_BUFFER_BACK);
+	}
+
+	void reset_front()
+	{
+		nk_buffer_reset(&m_buffer, NK_BUFFER_FRONT);
+	}
+
+	void reset_back()
+	{
+		nk_buffer_reset(&m_buffer, NK_BUFFER_BACK);
 	}
 
 	void clear()
@@ -3117,15 +3425,22 @@ public:
 #endif
 
 	/**
-	 * @brief Perform the baking process.
+	 * @brief Perform the baking process in specific atlas format.
 	 * @param dimentions Resulting image dimentions.
-	 * @param fmt One of available atlas formats.
 	 * @return Pointer to resulting image.
 	 * @attention This function must be called between @ref begin and @ref end.
 	 */
-	NUKLEUS_NODISCARD const void* bake(vec2<int>& dimentions, nk_font_atlas_format fmt)
+	NUKLEUS_NODISCARD const void* bake_alpha8(vec2<int>& dimentions)
 	{
-		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, fmt);
+		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, NK_FONT_ATLAS_ALPHA8);
+	}
+
+	/**
+	 * @copydoc bake_alpha8
+	 */
+	NUKLEUS_NODISCARD const void* bake_rgba32(vec2<int>& dimentions)
+	{
+		return nk_font_atlas_bake(&m_atlas, &dimentions.x, &dimentions.y, NK_FONT_ATLAS_RGBA32);
 	}
 
 	NUKLEUS_NODISCARD nk_draw_null_texture end(handle texture)
@@ -3274,7 +3589,7 @@ public:
 
 	/**
 	 * @brief Mirrors the state of a specific key to nuklear.
-	 * @param key any value specified in enum nk_keys that needs to be mirrored
+	 * @param key value specified in enum that needs to be mirrored
 	 * @param down false for key being up and true for key being down
 	 */
 	void key(nk_keys key, bool down)
@@ -3283,8 +3598,16 @@ public:
 	}
 
 	/**
+	 * @copydoc key(nk_keys key, bool down)
+	 */
+	void key(keys key, bool down)
+	{
+		this->key(to_nk_enum(key), down);
+	}
+
+	/**
 	 * @brief Mirrors the state of a specific mouse button to nuklear.
-	 * @param button any value specified in enum nk_buttons that needs to be mirrored
+	 * @param button any value specified in enum that needs to be mirrored
 	 * @param x mouse cursor x-position on click up/down
 	 * @param y mouse cursor y-position on click up/down
 	 * @param down false for key being up and true for key being down
@@ -3292,6 +3615,14 @@ public:
 	void button(nk_buttons button, int x, int y, bool down)
 	{
 		nk_input_button(&get_context(), button, x, y, down);
+	}
+
+	/**
+	 * @copydoc button(nk_buttons button, int x, int y, bool down)
+	 */
+	void button(buttons button, int x, int y, bool down)
+	{
+		this->button(to_nk_enum(button), x, y, down);
 	}
 
 	/**
@@ -3348,9 +3679,19 @@ public:
 		return nk_input_has_mouse_click(&get(), id) == nk_true;
 	}
 
+	bool has_mouse_click(buttons id) const
+	{
+		return has_mouse_click(to_nk_enum(id));
+	}
+
 	bool has_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
 	{
 		return nk_input_has_mouse_click_in_rect(&get(), id, bounds) == nk_true;
+	}
+
+	bool has_mouse_click_in_rect(buttons id, rect<float> bounds) const
+	{
+		return has_mouse_click_in_rect(to_nk_enum(id), bounds);
 	}
 
 	bool has_mouse_click_in_button_rect(nk_buttons id, rect<float> bounds) const
@@ -3358,9 +3699,19 @@ public:
 		return nk_input_has_mouse_click_in_button_rect(&get(), id, bounds) == nk_true;
 	}
 
+	bool has_mouse_click_in_button_rect(buttons id, rect<float> bounds) const
+	{
+		return has_mouse_click_in_button_rect(to_nk_enum(id), bounds);
+	}
+
 	bool has_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
 	{
 		return nk_input_has_mouse_click_down_in_rect(&get(), id, bounds, down) == nk_true;
+	}
+
+	bool has_mouse_click_down_in_rect(buttons id, rect<float> bounds, bool down) const
+	{
+		return has_mouse_click_down_in_rect(to_nk_enum(id), bounds, down);
 	}
 
 	bool is_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
@@ -3368,9 +3719,19 @@ public:
 		return nk_input_is_mouse_click_in_rect(&get(), id, bounds) == nk_true;
 	}
 
+	bool is_mouse_click_in_rect(buttons id, rect<float> bounds) const
+	{
+		return is_mouse_click_in_rect(to_nk_enum(id), bounds);
+	}
+
 	bool is_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
 	{
 		return nk_input_is_mouse_click_down_in_rect(&get(), id, bounds, down) == nk_true;
+	}
+
+	bool is_mouse_click_down_in_rect(buttons id, rect<float> bounds, bool down) const
+	{
+		return is_mouse_click_down_in_rect(to_nk_enum(id), bounds, down);
 	}
 
 	bool any_mouse_click_in_rect(rect<float> bounds) const
@@ -3393,9 +3754,19 @@ public:
 		return nk_input_mouse_clicked(&get(), id, bounds) == nk_true;
 	}
 
+	bool mouse_clicked(buttons id, rect<float> bounds) const
+	{
+		return mouse_clicked(to_nk_enum(id), bounds);
+	}
+
 	bool is_mouse_down(nk_buttons id) const
 	{
 		return nk_input_is_mouse_down(&get(), id) == nk_true;
+	}
+
+	bool is_mouse_down(buttons id) const
+	{
+		return is_mouse_down(to_nk_enum(id));
 	}
 
 	bool is_mouse_pressed(nk_buttons id) const
@@ -3403,9 +3774,19 @@ public:
 		return nk_input_is_mouse_pressed(&get(), id) == nk_true;
 	}
 
+	bool is_mouse_pressed(buttons id) const
+	{
+		return is_mouse_pressed(to_nk_enum(id));
+	}
+
 	bool is_mouse_released(nk_buttons id) const
 	{
 		return nk_input_is_mouse_released(&get(), id) == nk_true;
+	}
+
+	bool is_mouse_released(buttons id) const
+	{
+		return is_mouse_released(to_nk_enum(id));
 	}
 
 	bool is_key_pressed(nk_keys key) const
@@ -3413,14 +3794,29 @@ public:
 		return nk_input_is_key_pressed(&get(), key) == nk_true;
 	}
 
+	bool is_key_pressed(keys key) const
+	{
+		return is_key_pressed(to_nk_enum(key));
+	}
+
 	bool is_key_released(nk_keys key) const
 	{
 		return nk_input_is_key_released(&get(), key) == nk_true;
 	}
 
+	bool is_key_released(keys key) const
+	{
+		return is_key_released(to_nk_enum(key));
+	}
+
 	bool is_key_down(nk_keys key) const
 	{
 		return nk_input_is_key_down(&get(), key) == nk_true;
+	}
+
+	bool is_key_down(keys key) const
+	{
+		return is_key_down(to_nk_enum(key));
 	}
 
 	      nk_input& get()       { return get_context().input; }
@@ -3534,28 +3930,28 @@ public:
 	/**
 	 * @brief Start a new widget group. Requires a previous layouting function to specify a pos/size.
 	 * @param title Unique group title used to both identify and display in the group header.
-	 * @param flags Window flags defined in the nk_panel_flags section with a number of different group behaviors.
+	 * @param flags Optionally specified additional group behaviors.
 	 * @return scope guard that should be immediately checked
 	 */
-	group group_scoped(const char* title, nk_flags flags) &
+	group group_scoped(const char* title, panel_flags flags = panel_flags::none) &
 	{
 		return group(
 			get_context(),
-			nk_group_begin(&get_context(), title, flags) == nk_true ? &nk_group_end : nullptr);
+			nk_group_begin(&get_context(), title, to_nk_flags(flags)) == nk_true ? &nk_group_end : nullptr);
 	}
 
 	/**
 	 * @copybrief layout::group_scoped
 	 * @param name Unique identifier for this group.
 	 * @param title Group header title.
-	 * @param flags Window flags defined in the nk_panel_flags section with a number of different group behaviors.
+	 * @param flags Optionally specified additional group behaviors.
 	 * @return scope guard that should be immediately checked
 	 */
-	group group_titled_scoped(const char* name, const char* title, nk_flags flags) &
+	group group_titled_scoped(const char* name, const char* title, panel_flags flags = panel_flags::none) &
 	{
 		return group(
 			get_context(),
-			nk_group_begin_titled(&get_context(), name, title, flags) == nk_true ? &nk_group_end : nullptr);
+			nk_group_begin_titled(&get_context(), name, title, to_nk_flags(flags)) == nk_true ? &nk_group_end : nullptr);
 	}
 
 	/**
@@ -3564,15 +3960,15 @@ public:
 	 * @param x_offset Scrollbar x-offset to offset all widgets inside the group horizontally.
 	 * @param y_offset Scrollbar y-offset to offset all widgets inside the group vertically.
 	 * @param title Unique group title used to both identify and display in the group header.
-	 * @param flags Window flags from the nk_panel_flags section
+	 * @param flags Optionally specified additional group behaviors.
 	 * @return scope guard that should be immediately checked
 	 */
-	group group_scrolled_offset_scoped(uint& x_offset, uint& y_offset, const char* title, nk_flags flags) &
+	group group_scrolled_offset_scoped(uint& x_offset, uint& y_offset, const char* title, panel_flags flags = panel_flags::none) &
 	{
 		return group(
 			get_context(),
 			nk_group_scrolled_offset_begin(
-				&get_context(), &x_offset, &y_offset, title, flags
+				&get_context(), &x_offset, &y_offset, title, to_nk_flags(flags)
 			) == nk_true ? &nk_group_scrolled_end : nullptr);
 	}
 
@@ -3581,15 +3977,15 @@ public:
 	 * layouting function to specify a size. Does not keep track of scrollbar.
 	 * @param off Both x- and y- scroll offset. Allows for manual scrollbar control.
 	 * @param title Unique group title used to both identify and display in the group header.
-	 * @param flags Window flags from the nk_panel_flags section
+	 * @param flags Optionally specified additional group behaviors.
 	 * @return scope guard that should be immediately checked
 	 */
-	group group_scrolled_scoped(nk_scroll& off, const char* title, nk_flags flags) &
+	group group_scrolled_scoped(nk_scroll& off, const char* title, panel_flags flags = panel_flags::none) &
 	{
 		return group(
 			get_context(),
 			nk_group_scrolled_begin(
-				&get_context(), &off, title, flags
+				&get_context(), &off, title, to_nk_flags(flags)
 			) == nk_true ? &nk_group_scrolled_end : nullptr);
 	}
 
@@ -3806,14 +4202,14 @@ class chart : public scope_guard
 public:
 	using scope_guard::scope_guard;
 
-	void add_slot(nk_chart_type type, int count, float min_value, float max_value)
+	void add_slot(chart_type type, int count, float min_value, float max_value)
 	{
-		nk_chart_add_slot(&get_context(), type, count, min_value, max_value);
+		nk_chart_add_slot(&get_context(), to_nk_enum(type), count, min_value, max_value);
 	}
 
-	void add_slot_colored(nk_chart_type type, color col, color highlight, int count, float min_value, float max_value)
+	void add_slot_colored(chart_type type, color col, color highlight, int count, float min_value, float max_value)
 	{
-		nk_chart_add_slot_colored(&get_context(), type, col, highlight, count, min_value, max_value);
+		nk_chart_add_slot_colored(&get_context(), to_nk_enum(type), col, highlight, count, min_value, max_value);
 	}
 
 	NUKLEUS_NODISCARD nk_flags push(float value)
@@ -3890,14 +4286,14 @@ public:
 		return nk_combo_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_label(symbol_type symbol, const char* label, nk_flags alignment)
 	{
-		return nk_combo_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
+		return nk_combo_item_symbol_label(&get_context(), to_nk_enum(symbol), label, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_text(symbol_type symbol, const char* text, int len, nk_flags alignment)
 	{
-		return nk_combo_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
+		return nk_combo_item_symbol_text(&get_context(), to_nk_enum(symbol), text, len, alignment) == nk_true;
 	}
 
 	void close()
@@ -3934,14 +4330,14 @@ public:
 		return nk_contextual_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_label(symbol_type symbol, const char* label, nk_flags alignment)
 	{
-		return nk_contextual_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
+		return nk_contextual_item_symbol_label(&get_context(), to_nk_enum(symbol), label, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_text(symbol_type symbol, const char* text, int len, nk_flags alignment)
 	{
-		return nk_contextual_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
+		return nk_contextual_item_symbol_text(&get_context(), to_nk_enum(symbol), text, len, alignment) == nk_true;
 	}
 
 	void close()
@@ -3978,14 +4374,14 @@ public:
 		return nk_menu_item_image_text(&get_context(), img, text, len, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_symbol_text(nk_symbol_type symbol, const char* text, int len, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_text(symbol_type symbol, const char* text, int len, nk_flags alignment)
 	{
-		return nk_menu_item_symbol_text(&get_context(), symbol, text, len, alignment) == nk_true;
+		return nk_menu_item_symbol_text(&get_context(), to_nk_enum(symbol), text, len, alignment) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool item_symbol_label(nk_symbol_type symbol, const char* label, nk_flags alignment)
+	NUKLEUS_NODISCARD bool item_symbol_label(symbol_type symbol, const char* label, nk_flags alignment)
 	{
-		return nk_menu_item_symbol_label(&get_context(), symbol, label, alignment) == nk_true;
+		return nk_menu_item_symbol_label(&get_context(), to_nk_enum(symbol), label, alignment) == nk_true;
 	}
 
 	void close()
@@ -4015,10 +4411,10 @@ public:
  *     nk::rect<float> space;
  *     const nk::widget_layout_states state = window.widget(space);
  *
- *     if (state == NK_WIDGET_INVALID)
+ *     if (state == nk::widget_layout_states::invalid)
  *         return;
  *
- *     if (state != NK_WIDGET_ROM)
+ *     if (state != nk::widget_layout_states::rom)
  *         update_your_widget_by_user_input(...);
  *
  *     auto canvas = window.get_canvas();
@@ -4377,43 +4773,61 @@ public:
 	/**
 	 * @brief Update collapse state of a window with given name.
 	 * @param name Window identifier.
-	 * @param state One of collapse state values.
+	 * @param maximized `true` if window should be maximized.
 	 */
-	void window_collapse(const char* name, nk_collapse_states state)
+	void window_collapse_show(const char* name, bool maximized = true)
 	{
-		nk_window_collapse(&get_context(), name, state);
+		nk_window_collapse(&get_context(), name, to_nk_collapse_states(maximized));
+	}
+
+	/**
+	 * @brief Hide collapsible window with given name.
+	 * @param name Window identifier.
+	 */
+	void window_collapse_hide(const char* name)
+	{
+		window_collapse_show(name, false);
 	}
 
 	/**
 	 * @brief Update collapse state of a window with given name if given condition is met.
 	 * @param name Window identifier.
-	 * @param state One of collapse state values.
+	 * @param maximized `true` if window should be maximized.
 	 * @param cond If 0, function has no effect.
 	 */
-	void window_collapse_if(const char* name, nk_collapse_states state, int cond)
+	void window_collapse_show_if(const char* name, bool maximized, int cond)
 	{
-		nk_window_collapse_if(&get_context(), name, state, cond);
+		nk_window_collapse_if(&get_context(), name, to_nk_collapse_states(maximized), cond);
 	}
 
 	/**
 	 * @brief Update visibility state of a window with given name.
 	 * @param name Window identifier.
-	 * @param state New state to apply.
+	 * @param show Whether to show the window.
 	 */
-	void window_show(const char* name, nk_show_states state)
+	void window_show(const char* name, bool show = true)
 	{
-		nk_window_show(&get_context(), name, state);
+		nk_window_show(&get_context(), name, to_nk_show_states(show));
+	}
+
+	/**
+	 * @brief Hide a window with given name.
+	 * @param name Window identifier.
+	 */
+	void window_hide(const char* name)
+	{
+		window_show(name, false);
 	}
 
 	/**
 	 * @brief Update visibility state of a window with given name if given condition is met.
 	 * @param name Window identifier.
-	 * @param state New state to apply.
+	 * @param show Whether to show the window.
 	 * @param cond If 0, function has no effect.
 	 */
-	void window_show_if(const char* name, nk_show_states state, int cond)
+	void window_show_if(const char* name, bool show, int cond)
 	{
-		nk_window_show_if(&get_context(), name, state, cond);
+		nk_window_show_if(&get_context(), name, to_nk_show_states(show), cond);
 	}
 
 	/// @}
@@ -5122,8 +5536,7 @@ public:
 	 *
 	 * Trees thereby can be nested for tree representations and multiple nested
 	 * collapsible UI sections. Each starting functions takes a title label
-	 * and optionally an image to be displayed and the initial collapse state from
-	 * the `nk_collapse_states` section.
+	 * and optionally an image to be displayed and the initial collapse state.
 	 *
 	 * The runtime state of the tree is either stored outside the library by the caller
 	 * or inside which requires a unique ID. The unique ID can either be generated automatically
@@ -5148,16 +5561,16 @@ public:
 	 * control over internal unique ID used to store state.
 	 * @param type Visually mark a tree node header as either a collapsible UI section or tree node.
 	 * @param title Label printed in the tree header.
-	 * @param initial_state Initial tree state value.
+	 * @param maximized Initial tree state value.
 	 * @param hash Memory block or string to generate the ID from.
 	 * @param len Size of passed memory block or string in @p hash.
 	 * @param seed Seeding value if this function is called in a loop or default to `0`.
 	 * @return Tree scope guard object that should be immediately checked.
 	 */
 	NUKLEUS_NODISCARD tree tree_hashed_scoped(
-		nk_tree_type type, const char* title, nk_collapse_states initial_state, const char* hash, int len, int seed = 0)
+		tree_type type, const char* title, bool maximized, const char* hash, int len, int seed = 0)
 	{
-		return _tree_scoped_internal(nk_tree_push_hashed(&get_context(), type, title, initial_state, hash, len, seed));
+		return _tree_scoped_internal(nk_tree_push_hashed(&get_context(), to_nk_enum(type), title, to_nk_collapse_states(maximized), hash, len, seed));
 	}
 
 	/**
@@ -5165,53 +5578,53 @@ public:
 	 * @param img Image to display inside the header on the left of the label.
 	 */
 	NUKLEUS_NODISCARD tree tree_image_hashed_scoped(
-		nk_tree_type type, image img, const char* title, nk_collapse_states initial_state, const char* hash, int len, int seed = 0)
+		tree_type type, image img, const char* title, bool maximized, const char* hash, int len, int seed = 0)
 	{
-		return _tree_scoped_internal(nk_tree_image_push_hashed(&get_context(), type, img, title, initial_state, hash, len, seed));
+		return _tree_scoped_internal(nk_tree_image_push_hashed(&get_context(), to_nk_enum(type), img, title, to_nk_collapse_states(maximized), hash, len, seed));
 	}
 
 	/**
 	 * @brief Start a collapsible UI section with external state management.
 	 * @param type Visually mark a tree node header as either a collapsible UI section or tree node.
 	 * @param title Label printed in the tree header.
-	 * @param state Persistent state to update.
+	 * @param state Persistent state to update (true if maximized).
 	 * @return Tree scope guard object that should be immediately checked.
 	 */
-	NUKLEUS_NODISCARD tree tree_state_scoped(nk_tree_type type, const char* title, nk_collapse_states& state)
+	NUKLEUS_NODISCARD tree tree_state_scoped(tree_type type, const char* title, nk_collapse_states& state)
 	{
-		return _tree_state_scoped_internal(nk_tree_state_push(&get_context(), type, title, &state));
+		return _tree_state_scoped_internal(nk_tree_state_push(&get_context(), to_nk_enum(type), title, &state));
 	}
 
 	/**
-	 * @copydoc tree_state_scoped(nk_tree_type, const char*, nk_collapse_states&)
+	 * @copydoc tree_state_scoped(tree_type, const char*, nk_collapse_states&)
 	 */
-	NUKLEUS_NODISCARD tree tree_state_scoped(nk_tree_type type, const char* title, bool& state)
+	NUKLEUS_NODISCARD tree tree_state_scoped(tree_type type, const char* title, bool& state)
 	{
-		nk_collapse_states collapse_state = state ? NK_MAXIMIZED : NK_MINIMIZED;
+		nk_collapse_states collapse_state = to_nk_collapse_states(state);
 		tree result = tree_state_scoped(type, title, collapse_state);
-		state = collapse_state == NK_MAXIMIZED;
+		state = from_nk_collapse_states(collapse_state);
 		return result;
 	}
 
 	/**
-	 * @copydoc tree_state_scoped(nk_tree_type, const char*, nk_collapse_states&)
+	 * @copydoc tree_state_scoped(tree_type, const char*, nk_collapse_states&)
 	 * @param img Image to display inside the header on the left of the label.
 	 */
 	NUKLEUS_NODISCARD tree tree_state_image_scoped(
-		nk_tree_type type, image img, const char* title, nk_collapse_states& state)
+		tree_type type, image img, const char* title, nk_collapse_states& state)
 	{
-		return _tree_state_scoped_internal(nk_tree_state_image_push(&get_context(), type, img, title, &state));
+		return _tree_state_scoped_internal(nk_tree_state_image_push(&get_context(), to_nk_enum(type), img, title, &state));
 	}
 
 	/**
-	 * @copydoc tree_state_image_scoped(nk_tree_type, image, const char*, nk_collapse_states&)
+	 * @copydoc tree_state_image_scoped(tree_type, image, const char*, nk_collapse_states&)
 	 */
 	NUKLEUS_NODISCARD tree tree_state_image_scoped(
-		nk_tree_type type, image img, const char* title, bool& state)
+		tree_type type, image img, const char* title, bool& state)
 	{
-		nk_collapse_states collapse_state = state ? NK_MAXIMIZED : NK_MINIMIZED;
+		nk_collapse_states collapse_state = to_nk_collapse_states(state);
 		tree result = tree_state_image_scoped(type, img, title, collapse_state);
-		state = collapse_state == NK_MAXIMIZED;
+		state = from_nk_collapse_states(collapse_state);
 		return result;
 	}
 
@@ -5219,7 +5632,7 @@ public:
 	 * @brief Start a collapsible UI section with external state management.
 	 * @param type Visually mark a tree node header as either a collapsible UI section or tree node.
 	 * @param title Label printed in the tree header.
-	 * @param initial_state Initial tree state value.
+	 * @param maximized Initial tree state value.
 	 * @param selected State to update
 	 * @param hash Memory block or string to generate the ID from.
 	 * @param len Size of passed memory block or string in @p hash.
@@ -5227,10 +5640,10 @@ public:
 	 * @return Tree scope guard object that should be immediately checked.
 	 */
 	NUKLEUS_NODISCARD tree tree_element_hashed_scoped(
-		nk_tree_type type, const char* title, nk_collapse_states initial_state, bool& selected, const char* hash, int len, int seed = 0)
+		tree_type type, const char* title, bool maximized, bool& selected, const char* hash, int len, int seed = 0)
 	{
 		return _tree_element_scoped_internal(nk_tree_element_push_hashed(
-			&get_context(), type, title, initial_state, detail::output_bool(selected), hash, len, seed));
+			&get_context(), to_nk_enum(type), title, to_nk_collapse_states(maximized), detail::output_bool(selected), hash, len, seed));
 	}
 
 	/**
@@ -5238,70 +5651,70 @@ public:
 	 * @param img Image to display inside the header on the left of the label.
 	 */
 	NUKLEUS_NODISCARD tree tree_element_image_hashed_scoped(
-		nk_tree_type type, image img, const char* title, nk_collapse_states initial_state, bool& selected, const char* hash, int len, int seed = 0)
+		tree_type type, image img, const char* title, bool maximized, bool& selected, const char* hash, int len, int seed = 0)
 	{
 		return _tree_element_scoped_internal(nk_tree_element_image_push_hashed(
-			&get_context(), type, img, title, initial_state, detail::output_bool(selected), hash, len, seed));
+			&get_context(), to_nk_enum(type), img, title, to_nk_collapse_states(maximized), detail::output_bool(selected), hash, len, seed));
 	}
 
 	/**
 	 * @brief Start a collapsible UI section with internal state management.
-	 * @param win nk::window&
-	 * @param type nk_tree_type.
-	 * @param title const char*.
-	 * @param state Initial tree state of type nk_collapse_states.
+	 * @param win `nk::window&`
+	 * @param type @ref nk::tree_type.
+	 * @param title `const char*`.
+	 * @param state Initial tree state of type `nk_collapse_states` or `bool`.
 	 * @return Tree scope guard object that should be immediately checked.
 	 *
 	 * @details This macro automates @ref nk::window::tree_hashed_scoped.
 	 */
 #define NUKLEUS_TREE_SCOPED(win, type, title, state) \
-	win._tree_scoped_internal(nk_tree_push   (&win.get_context(), type, title, state))
+	win._tree_scoped_internal(nk_tree_push   (&win.get_context(), ::nk::to_nk_enum(type), title, state))
 	/**
 	 * @copydoc NUKLEUS_TREE_SCOPED
 	 * @param id Loop counter index if this function is called in a loop.
 	 */
 #define NUKLEUS_TREE_ID_SCOPED(win, type, title, state, id) \
-	win._tree_scoped_internal(nk_tree_push_id(&win.get_context(), type, title, state, id))
+	win._tree_scoped_internal(nk_tree_push_id(&win.get_context(), ::nk::to_nk_enum(type), title, state, id))
 
 	/**
 	 * @brief Start a collapsible UI section with internal state management.
-	 * @param win nk::window&.
-	 * @param type nk_tree_type.
-	 * @param img nk_image.
-	 * @param title const char*.
-	 * @param state Initial tree state of type nk_collapse_states.
+	 * @param win `nk::window&`.
+	 * @param type @ref nk::tree_type.
+	 * @param img @ref nk::image.
+	 * @param title `const char*`.
+	 * @param state Initial tree state of type `nk_collapse_states` or `bool`.
 	 * @return Tree scope guard object that should be immediately checked.
 	 *
 	 * @details This macro automates @ref nk::window::tree_image_hashed_scoped.
 	 */
 #define NUKLEUS_TREE_IMAGE_SCOPED(win, type, img, title, state) \
-	win._tree_scoped_internal(nk_tree_image_push   (&win.get_context(), type, img, title, state))
+	win._tree_scoped_internal(nk_tree_image_push   (&win.get_context(), ::nk::to_nk_enum(type), img, title, state))
 	/**
 	 * @copydoc NUKLEUS_TREE_IMAGE_SCOPED
 	 * @param id Loop counter index if this function is called in a loop.
 	 */
 #define NUKLEUS_TREE_IMAGE_ID_SCOPED(win, type, img, title, state, id) \
-	win._tree_scoped_internal(nk_tree_image_push_id(&win.get_context(), type, img, title, state, id))
+	win._tree_scoped_internal(nk_tree_image_push_id(&win.get_context(), ::nk::to_nk_enum(type), img, title, state, id))
 
 	/**
 	 * @brief Start a collapsible UI section with external state management.
-	 * @param win nk::window&.
-	 * @param type nk_tree_type.
-	 * @param title const char*.
-	 * @param state Initial tree state of type nk_collapse_states.
-	 * @param sel bool& selected state, will be updated
+	 * @param win `nk::window&`.
+	 * @param type @ref nk::tree_type.
+	 * @param title `const char*`.
+	 * @param state Initial tree state of type `nk_collapse_states` or `bool`.
+	 * @param sel `bool&` selected state, will be updated
 	 * @return Tree scope guard object that should be immediately checked.
 	 *
 	 * @details This macro automates @ref nk::window::tree_element_hashed_scoped.
 	 */
 #define NUKLEUS_TREE_ELEMENT_SCOPED(win, type, title, state, sel) \
-	win._tree_element_scoped_internal(nk_tree_element_push   (&win.get_context(), type, title, state, ::nk::detail::output_bool(sel)))
+	win._tree_element_scoped_internal(nk_tree_element_push   (&win.get_context(), ::nk::to_nk_enum(type), title, state, ::nk::detail::output_bool(sel)))
 	/**
 	 * @copydoc NUKLEUS_TREE_ELEMENT_SCOPED
 	 * @param id Loop counter index if this function is called in a loop.
 	 */
 #define NUKLEUS_TREE_ELEMENT_ID_SCOPED(win, type, title, state, sel, id) \
-	win._tree_element_scoped_internal(nk_tree_element_push_id(&win.get_context(), type, title, state, ::nk::detail::output_bool(sel), id))
+	win._tree_element_scoped_internal(nk_tree_element_push_id(&win.get_context(), ::nk::to_nk_enum(type), title, state, ::nk::detail::output_bool(sel), id))
 
 	/// @}
 
@@ -5334,8 +5747,8 @@ public:
 	 * @param bounds widget bounds
 	 * @return the state of the widget space
 	 * @details Return value should dictate further action:
-	 * - `NK_WIDGET_INVALID`: widget is not seen and does not have to be updated or drawn
-	 * - `NK_WIDGET_ROM`: widget is only (partially) visible - draw but don't update
+	 * - `invalid`: widget is not seen and does not have to be updated or drawn
+	 * - `rom`: widget is only (partially) visible - draw but don't update
 	 * - other: do drawing and update
 	 *
 	 * The reason for it is to only draw and update what is
@@ -5346,7 +5759,7 @@ public:
 		struct nk_rect r{};
 		auto result = nk_widget(&r, &get_context());
 		bounds = r;
-		return result;
+		return from_nk_enum(result);
 	}
 
 	widget_layout_states widget_fitting(rect<float>& bounds, vec2<float> item_padding) const
@@ -5354,7 +5767,7 @@ public:
 		struct nk_rect r{};
 		auto result = nk_widget_fitting(&r, &get_context(), item_padding);
 		bounds = r;
-		return result;
+		return from_nk_enum(result);
 	}
 
 	rect<float> widget_bounds() const
@@ -5387,14 +5800,24 @@ public:
 		return nk_widget_is_hovered(&get_context()) == nk_true;
 	}
 
-	bool widget_is_mouse_clicked(buttons btn) const
+	bool widget_is_mouse_clicked(nk_buttons btn) const
 	{
 		return nk_widget_is_mouse_clicked(&get_context(), btn) == nk_true;
 	}
 
-	bool widget_has_mouse_click_down(buttons btn, bool down) const
+	bool widget_is_mouse_clicked(buttons btn) const
+	{
+		return widget_is_mouse_clicked(to_nk_enum(btn));
+	}
+
+	bool widget_has_mouse_click_down(nk_buttons btn, bool down) const
 	{
 		return nk_widget_has_mouse_click_down(&get_context(), btn, down) == nk_true;
+	}
+
+	bool widget_has_mouse_click_down(buttons btn, bool down) const
+	{
+		return widget_has_mouse_click_down(to_nk_enum(btn), down);
 	}
 
 	void spacing(int cols)
@@ -5618,7 +6041,7 @@ public:
 
 	NUKLEUS_NODISCARD bool button_symbol(symbol_type symbol)
 	{
-		return nk_button_symbol(&get_context(), symbol) == nk_true;
+		return nk_button_symbol(&get_context(), to_nk_enum(symbol)) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool button_image(nk::image img)
@@ -5628,12 +6051,12 @@ public:
 
 	NUKLEUS_NODISCARD bool button_symbol_label(symbol_type symbol, const char* label, nk_flags align)
 	{
-		return nk_button_symbol_label(&get_context(), symbol, label, align) == nk_true;
+		return nk_button_symbol_label(&get_context(), to_nk_enum(symbol), label, align) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool button_symbol_text(symbol_type symbol, const char* text, int len, nk_flags align)
 	{
-		return nk_button_symbol_text(&get_context(), symbol, text, len, align) == nk_true;
+		return nk_button_symbol_text(&get_context(), to_nk_enum(symbol), text, len, align) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool button_image_label(nk::image img, const char* label, nk_flags align)
@@ -5658,7 +6081,7 @@ public:
 
 	NUKLEUS_NODISCARD bool button_symbol_styled(const style_button& style, symbol_type symbol)
 	{
-		return nk_button_symbol_styled(&get_context(), &style, symbol) == nk_true;
+		return nk_button_symbol_styled(&get_context(), &style, to_nk_enum(symbol)) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool button_image_styled(const style_button& style, nk::image img)
@@ -5668,12 +6091,12 @@ public:
 
 	NUKLEUS_NODISCARD bool button_symbol_text_styled(const style_button& style, symbol_type symbol, const char* text, int len, nk_flags align)
 	{
-		return nk_button_symbol_text_styled(&get_context(), &style, symbol, text, len, align) == nk_true;
+		return nk_button_symbol_text_styled(&get_context(), &style, to_nk_enum(symbol), text, len, align) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool button_symbol_label_styled(const style_button& style, symbol_type symbol, const char* title, nk_flags align)
 	{
-		return nk_button_symbol_label_styled(&get_context(), &style, symbol, title, align) == nk_true;
+		return nk_button_symbol_label_styled(&get_context(), &style, to_nk_enum(symbol), title, align) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool button_image_label_styled(const style_button& style, nk::image img, const char* label, nk_flags align)
@@ -5689,23 +6112,23 @@ public:
 	/**
 	 * @brief set button behavior (persistent, untill changed again)
 	 * @param behavior behavior to set
-	 * @details use `NK_BUTTON_DEFAULT` or @ref button_reset_behavior to reset
+	 * @details use @ref button_reset_behavior to reset
 	 */
 	void button_set_behavior(button_behavior behavior)
 	{
-		nk_button_set_behavior(&get_context(), behavior);
+		nk_button_set_behavior(&get_context(), to_nk_enum(behavior));
 	}
 
 	void button_reset_behavior()
 	{
-		nk_button_set_behavior(&get_context(), NK_BUTTON_DEFAULT);
+		button_set_behavior(button_behavior::default_);
 	}
 
 	NUKLEUS_NODISCARD scoped_override_guard button_behavior_scoped(button_behavior behavior)
 	{
 		return scoped_override_guard(
 			get_context(),
-			nk_button_push_behavior(&get_context(), behavior) == nk_true ? &nk_button_pop_behavior : nullptr);
+			nk_button_push_behavior(&get_context(), to_nk_enum(behavior)) == nk_true ? &nk_button_pop_behavior : nullptr);
 	}
 
 	/// @}
@@ -5848,12 +6271,12 @@ public:
 
 	NUKLEUS_NODISCARD bool selectable_symbol_label_in_place(symbol_type symbol, const char* str, nk_flags align, bool& value)
 	{
-		return nk_selectable_symbol_label(&get_context(), symbol, str, align, detail::output_bool(value));
+		return nk_selectable_symbol_label(&get_context(), to_nk_enum(symbol), str, align, detail::output_bool(value));
 	}
 
 	NUKLEUS_NODISCARD bool selectable_symbol_text_in_place(symbol_type symbol, const char* str, int len, nk_flags align, bool& value)
 	{
-		return nk_selectable_symbol_text(&get_context(), symbol, str, len, align, detail::output_bool(value));
+		return nk_selectable_symbol_text(&get_context(), to_nk_enum(symbol), str, len, align, detail::output_bool(value));
 	}
 
 	NUKLEUS_NODISCARD bool selectable_label(const char* str, nk_flags align, bool value)
@@ -5878,12 +6301,12 @@ public:
 
 	NUKLEUS_NODISCARD bool selectable_symbol_label(symbol_type symbol, const char* str, nk_flags align, bool value)
 	{
-		return nk_select_symbol_label(&get_context(), symbol, str, align, value) == nk_true;
+		return nk_select_symbol_label(&get_context(), to_nk_enum(symbol), str, align, value) == nk_true;
 	}
 
 	NUKLEUS_NODISCARD bool selectable_symbol_text(symbol_type symbol, const char* str, int len, nk_flags align, bool value)
 	{
-		return nk_select_symbol_text(&get_context(), symbol, str, len, align, value) == nk_true;
+		return nk_select_symbol_text(&get_context(), to_nk_enum(symbol), str, len, align, value) == nk_true;
 	}
 
 	/// @}
@@ -5922,14 +6345,14 @@ public:
 	 * @{
 	 */
 
-	NUKLEUS_NODISCARD bool knob_in_place(float min, float& value, float max, float step, heading zero_direction, float dead_zone_degrees)
+	NUKLEUS_NODISCARD bool knob_in_place(float min, float& value, float max, float step, heading zero_direction = heading::down, float dead_zone_degrees = 60.0f)
 	{
-		return nk_knob_float(&get_context(), min, &value, max, step, zero_direction, dead_zone_degrees) == nk_true;
+		return nk_knob_float(&get_context(), min, &value, max, step, to_nk_enum(zero_direction), dead_zone_degrees) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD bool knob_in_place(int min, int& value, int max, int step, heading zero_direction, float dead_zone_degrees)
+	NUKLEUS_NODISCARD bool knob_in_place(int min, int& value, int max, int step, heading zero_direction = heading::down, float dead_zone_degrees = 60.0f)
 	{
-		return nk_knob_int(&get_context(), min, &value, max, step, zero_direction, dead_zone_degrees) == nk_true;
+		return nk_knob_int(&get_context(), min, &value, max, step, to_nk_enum(zero_direction), dead_zone_degrees) == nk_true;
 	}
 
 	/// @}
@@ -5958,20 +6381,38 @@ public:
 	 * @{
 	 */
 
-	NUKLEUS_NODISCARD colorf color_picker(colorf col, color_format fmt)
+	NUKLEUS_NODISCARD colorf color_picker_rgb(colorf col)
 	{
-		return nk_color_picker(&get_context(), col, fmt);
+		return nk_color_picker(&get_context(), col, NK_RGB);
 	}
 
-	NUKLEUS_NODISCARD bool color_picker_in_place(nk_colorf& col, color_format fmt)
+	NUKLEUS_NODISCARD colorf color_picker_rgba(colorf col)
 	{
-		return nk_color_pick(&get_context(), &col, fmt) == nk_true;
+		return nk_color_picker(&get_context(), col, NK_RGBA);
 	}
 
-	NUKLEUS_NODISCARD bool color_picker_in_place(colorf& col, color_format fmt)
+	NUKLEUS_NODISCARD bool color_picker_rgb_in_place(nk_colorf& col)
+	{
+		return nk_color_pick(&get_context(), &col, NK_RGB) == nk_true;
+	}
+
+	NUKLEUS_NODISCARD bool color_picker_rgba_in_place(nk_colorf& col)
+	{
+		return nk_color_pick(&get_context(), &col, NK_RGBA) == nk_true;
+	}
+
+	NUKLEUS_NODISCARD bool color_picker_rgb_in_place(colorf& col)
 	{
 		auto c = static_cast<nk_colorf>(col);
-		const bool result = color_picker_in_place(c, fmt);
+		const bool result = color_picker_rgb_in_place(c);
+		col = c;
+		return result;
+	}
+
+	NUKLEUS_NODISCARD bool color_picker_rgba_in_place(colorf& col)
+	{
+		auto c = static_cast<nk_colorf>(col);
+		const bool result = color_picker_rgba_in_place(c);
 		col = c;
 		return result;
 	}
@@ -6109,28 +6550,28 @@ public:
 	 * @{
 	 */
 
-	NUKLEUS_NODISCARD chart chart_scoped(nk_chart_type type, int count, float min, float max)
+	NUKLEUS_NODISCARD chart chart_scoped(chart_type type, int count, float min, float max)
 	{
 		return chart(
 			get_context(),
-			nk_chart_begin(&get_context(), type, count, min, max) == nk_true ? &nk_chart_end : nullptr);
+			nk_chart_begin(&get_context(), to_nk_enum(type), count, min, max) == nk_true ? &nk_chart_end : nullptr);
 	}
 
-	NUKLEUS_NODISCARD chart chart_colored_scoped(nk_chart_type type, color col, color highlight, int count, float min, float max)
+	NUKLEUS_NODISCARD chart chart_colored_scoped(chart_type type, color col, color highlight, int count, float min, float max)
 	{
 		return chart(
 			get_context(),
-			nk_chart_begin_colored(&get_context(), type, col, highlight, count, min, max) == nk_true ? &nk_chart_end : nullptr);
+			nk_chart_begin_colored(&get_context(), to_nk_enum(type), col, highlight, count, min, max) == nk_true ? &nk_chart_end : nullptr);
 	}
 
-	void plot(nk_chart_type type, const float* values, int count, int offset)
+	void plot(chart_type type, const float* values, int count, int offset)
 	{
-		nk_plot(&get_context(), type, values, count, offset);
+		nk_plot(&get_context(), to_nk_enum(type), values, count, offset);
 	}
 
-	void plot_function(nk_chart_type type, void* userdata, float(*value_getter)(void* userdata, int index), int count, int offset)
+	void plot_function(chart_type type, void* userdata, float(*value_getter)(void* userdata, int index), int count, int offset)
 	{
-		nk_plot_function(&get_context(), type, userdata, value_getter, count, offset);
+		nk_plot_function(&get_context(), to_nk_enum(type), userdata, value_getter, count, offset);
 	}
 
 	/**
@@ -6142,7 +6583,7 @@ public:
 	 * @param offset value that will be added to any index
 	 */
 	template <typename F>
-	void plot_function(nk_chart_type type, F&& f, int count, int offset)
+	void plot_function(chart_type type, F&& f, int count, int offset)
 	{
 		static_assert(!is_pointer<remove_reference_t<F>>::value, "pass a function object/reference, not a function pointer");
 		static_assert(is_invocable_r<float, F, int>::value, "function must satisfy float(int)");
@@ -6161,11 +6602,18 @@ public:
 	 * @{
 	 */
 
-	NUKLEUS_NODISCARD popup popup_scoped(nk_popup_type type, const char* title, nk_flags flags, rect<float> bounds)
+	NUKLEUS_NODISCARD popup popup_static_scoped(const char* title, nk_flags flags, rect<float> bounds)
 	{
 		return popup(
 			get_context(),
-			nk_popup_begin(&get_context(), type, title, flags, bounds) == nk_true ? &nk_popup_end : nullptr);
+			nk_popup_begin(&get_context(), NK_POPUP_STATIC, title, flags, bounds) == nk_true ? &nk_popup_end : nullptr);
+	}
+
+	NUKLEUS_NODISCARD popup popup_dynamic_scoped(const char* title, nk_flags flags, rect<float> bounds)
+	{
+		return popup(
+			get_context(),
+			nk_popup_begin(&get_context(), NK_POPUP_DYNAMIC, title, flags, bounds) == nk_true ? &nk_popup_end : nullptr);
 	}
 
 	/// @}
@@ -6274,19 +6722,19 @@ public:
 		return combo_internal_scoped(nk_combo_begin_color(&get_context(), col, size));
 	}
 
-	NUKLEUS_NODISCARD class combobox combo_symbol_scoped(nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_symbol_scoped(symbol_type symbol, vec2<float> size)
 	{
-		return combo_internal_scoped(nk_combo_begin_symbol(&get_context(), symbol, size));
+		return combo_internal_scoped(nk_combo_begin_symbol(&get_context(), to_nk_enum(symbol), size));
 	}
 
-	NUKLEUS_NODISCARD class combobox combo_symbol_label_scoped(const char* selected, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_symbol_label_scoped(const char* selected, symbol_type symbol, vec2<float> size)
 	{
-		return combo_internal_scoped(nk_combo_begin_symbol_label(&get_context(), selected, symbol, size));
+		return combo_internal_scoped(nk_combo_begin_symbol_label(&get_context(), selected, to_nk_enum(symbol), size));
 	}
 
-	NUKLEUS_NODISCARD class combobox combo_symbol_text_scoped(const char* selected, int len, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD class combobox combo_symbol_text_scoped(const char* selected, int len, symbol_type symbol, vec2<float> size)
 	{
-		return combo_internal_scoped(nk_combo_begin_symbol_text(&get_context(), selected, len, symbol, size));
+		return combo_internal_scoped(nk_combo_begin_symbol_text(&get_context(), selected, len, to_nk_enum(symbol), size));
 	}
 
 	NUKLEUS_NODISCARD class combobox combo_image_scoped(nk::image img, vec2<float> size)
@@ -6407,19 +6855,19 @@ public:
 		return menu_internal_scoped(nk_menu_begin_image_label(&get_context(), label, alignment, img, size));
 	}
 
-	NUKLEUS_NODISCARD menu menu_symbol_scoped(const char* id, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_symbol_scoped(const char* id, symbol_type symbol, vec2<float> size)
 	{
-		return menu_internal_scoped(nk_menu_begin_symbol(&get_context(), id, symbol, size));
+		return menu_internal_scoped(nk_menu_begin_symbol(&get_context(), id, to_nk_enum(symbol), size));
 	}
 
-	NUKLEUS_NODISCARD menu menu_symbol_text_scoped(const char* text, int len, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_symbol_text_scoped(const char* text, int len, nk_flags alignment, symbol_type symbol, vec2<float> size)
 	{
-		return menu_internal_scoped(nk_menu_begin_symbol_text(&get_context(), text, len, alignment, symbol, size));
+		return menu_internal_scoped(nk_menu_begin_symbol_text(&get_context(), text, len, alignment, to_nk_enum(symbol), size));
 	}
 
-	NUKLEUS_NODISCARD menu menu_symbol_label_scoped(const char* label, nk_flags alignment, nk_symbol_type symbol, vec2<float> size)
+	NUKLEUS_NODISCARD menu menu_symbol_label_scoped(const char* label, nk_flags alignment, symbol_type symbol, vec2<float> size)
 	{
-		return menu_internal_scoped(nk_menu_begin_symbol_label(&get_context(), label, alignment, symbol, size));
+		return menu_internal_scoped(nk_menu_begin_symbol_label(&get_context(), label, alignment, to_nk_enum(symbol), size));
 	}
 
 	/// @}
@@ -6641,9 +7089,19 @@ public:
 		return nk_input_has_mouse_click(&m_ctx.input, id) == nk_true;
 	}
 
+	bool input_has_mouse_click(buttons id) const
+	{
+		return input_has_mouse_click(to_nk_enum(id));
+	}
+
 	bool input_has_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
 	{
 		return nk_input_has_mouse_click_in_rect(&m_ctx.input, id, bounds) == nk_true;
+	}
+
+	bool input_has_mouse_click_in_rect(buttons id, rect<float> bounds) const
+	{
+		return input_has_mouse_click_in_rect(to_nk_enum(id), bounds);
 	}
 
 	bool input_has_mouse_click_in_button_rect(nk_buttons id, rect<float> bounds) const
@@ -6651,9 +7109,19 @@ public:
 		return nk_input_has_mouse_click_in_button_rect(&m_ctx.input, id, bounds) == nk_true;
 	}
 
+	bool input_has_mouse_click_in_button_rect(buttons id, rect<float> bounds) const
+	{
+		return input_has_mouse_click_in_button_rect(to_nk_enum(id), bounds);
+	}
+
 	bool input_has_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
 	{
 		return nk_input_has_mouse_click_down_in_rect(&m_ctx.input, id, bounds, down) == nk_true;
+	}
+
+	bool input_has_mouse_click_down_in_rect(buttons id, rect<float> bounds, bool down) const
+	{
+		return input_has_mouse_click_down_in_rect(to_nk_enum(id), bounds, down);
 	}
 
 	bool input_is_mouse_click_in_rect(nk_buttons id, rect<float> bounds) const
@@ -6661,9 +7129,19 @@ public:
 		return nk_input_is_mouse_click_in_rect(&m_ctx.input, id, bounds) == nk_true;
 	}
 
+	bool input_is_mouse_click_in_rect(buttons id, rect<float> bounds) const
+	{
+		return input_is_mouse_click_in_rect(to_nk_enum(id), bounds);
+	}
+
 	bool input_is_mouse_click_down_in_rect(nk_buttons id, rect<float> bounds, bool down) const
 	{
 		return nk_input_is_mouse_click_down_in_rect(&m_ctx.input, id, bounds, down) == nk_true;
+	}
+
+	bool input_is_mouse_click_down_in_rect(buttons id, rect<float> bounds, bool down) const
+	{
+		return input_is_mouse_click_down_in_rect(to_nk_enum(id), bounds, down);
 	}
 
 	bool input_any_mouse_click_in_rect(rect<float> bounds) const
@@ -6686,9 +7164,19 @@ public:
 		return nk_input_mouse_clicked(&m_ctx.input, id, bounds) == nk_true;
 	}
 
+	bool input_mouse_clicked(buttons id, rect<float> bounds) const
+	{
+		return input_mouse_clicked(to_nk_enum(id), bounds);
+	}
+
 	bool input_is_mouse_down(nk_buttons id) const
 	{
 		return nk_input_is_mouse_down(&m_ctx.input, id) == nk_true;
+	}
+
+	bool input_is_mouse_down(buttons id) const
+	{
+		return input_is_mouse_down(to_nk_enum(id));
 	}
 
 	bool input_is_mouse_pressed(nk_buttons id) const
@@ -6696,9 +7184,19 @@ public:
 		return nk_input_is_mouse_pressed(&m_ctx.input, id) == nk_true;
 	}
 
+	bool input_is_mouse_pressed(buttons id) const
+	{
+		return input_is_mouse_pressed(to_nk_enum(id));
+	}
+
 	bool input_is_mouse_released(nk_buttons id) const
 	{
 		return nk_input_is_mouse_released(&m_ctx.input, id) == nk_true;
+	}
+
+	bool input_is_mouse_released(buttons id) const
+	{
+		return input_is_mouse_released(to_nk_enum(id));
 	}
 
 	bool input_is_key_pressed(nk_keys key) const
@@ -6706,14 +7204,29 @@ public:
 		return nk_input_is_key_pressed(&m_ctx.input, key) == nk_true;
 	}
 
+	bool input_is_key_pressed(keys key) const
+	{
+		return input_is_key_pressed(to_nk_enum(key));
+	}
+
 	bool input_is_key_released(nk_keys key) const
 	{
 		return nk_input_is_key_released(&m_ctx.input, key) == nk_true;
 	}
 
+	bool input_is_key_released(keys key) const
+	{
+		return input_is_key_released(to_nk_enum(key));
+	}
+
 	bool input_is_key_down(nk_keys key) const
 	{
 		return nk_input_is_key_down(&m_ctx.input, key) == nk_true;
+	}
+
+	bool input_is_key_down(keys key) const
+	{
+		return input_is_key_down(to_nk_enum(key));
 	}
 
 	/// @}
@@ -6761,17 +7274,17 @@ public:
 	 * @param vertices previously initialized buffer to hold all produced vertices
 	 * @param elements previously initialized buffer to hold all produced vertex indices
 	 * @param config filled out `nk_config` struct to configure the conversion process
-	 * @return one of `nk_convert_result` error codes
+	 * @return one or more error codes
 	 */
-	NUKLEUS_NODISCARD nk_convert_result convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
+	NUKLEUS_NODISCARD convert_result_flags convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
 	{
-		return static_cast<nk_convert_result>(nk_convert(&m_ctx, &cmds, &vertices, &elements, &config));
+		return static_cast<convert_result_flags>(nk_convert(&m_ctx, &cmds, &vertices, &elements, &config));
 	}
 
 	/**
 	 * @copydoc convert(nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, const nk_convert_config& config)
 	 */
-	NUKLEUS_NODISCARD nk_convert_result convert(buffer& cmds, buffer& vertices, buffer& elements, const nk_convert_config& config)
+	NUKLEUS_NODISCARD convert_result_flags convert(buffer& cmds, buffer& vertices, buffer& elements, const nk_convert_config& config)
 	{
 		return convert(cmds.get(), vertices.get(), elements.get(), config);
 	}
@@ -6822,28 +7335,28 @@ public:
 	 * @brief Start a new window; needs to be called every frame for every
 	 * window (unless hidden) or otherwise the window gets removed.
 	 * @param title Window title and identifier. Needs to be persistent over frames to identify the window.
-	 * @param bounds Initial position and window size. However if you do not define `NK_WINDOW_SCALABLE` or `NK_WINDOW_MOVABLE` you can set window position and size every frame.
-	 * @param flags Window flags defined in the nk_panel_flags section with a number of different window behaviors.
+	 * @param bounds Initial position and window size. However if you do not use `scalable` or `moveable` flags you can set window position and size every frame.
+	 * @param flags Optionally specified additional group behaviors.
 	 * @return Scope guard for the window, that should be immediately checked.
 	 * @details Example use: `if (auto window = ctx.window_scoped(...); window)`.
 	 */
-	NUKLEUS_NODISCARD window window_scoped(const char* title, rect<float> bounds, nk_flags flags)
+	NUKLEUS_NODISCARD window window_scoped(const char* title, rect<float> bounds, window_flags flags = window_flags::default_window_flags)
 	{
-		return window::create(m_ctx, nk_begin(&m_ctx, title, bounds, flags) == nk_true);
+		return window::create(m_ctx, nk_begin(&m_ctx, title, bounds, to_nk_flags(flags)) == nk_true);
 	}
 
 	/**
 	 * @brief Extended window start with separated title and identifier to allow multiple windows with same title but not name.
 	 * @param name Window identifier. Needs to be persistent over frames to identify the window.
-	 * @param title Window title displayed inside header if flag `NK_WINDOW_TITLE` or either `NK_WINDOW_CLOSABLE` or `NK_WINDOW_MINIMIZED` was set.
-	 * @param bounds Initial position and window size. However if you do not define `NK_WINDOW_SCALABLE` or `NK_WINDOW_MOVABLE` you can set window position and size every frame.
-	 * @param flags Window flags defined in the nk_panel_flags section with a number of different window behaviors.
+	 * @param title Window title displayed inside header if flag `title` or either `closable` or `minimized` flag was set.
+	 * @param bounds Initial position and window size. However if you do not use `scalable` or `moveable` flags you can set window position and size every frame.
+	 * @param flags Optionally specified additional group behaviors.
 	 * @return Scope guard for the window, that should be immediately checked.
 	 * @details Example use: `if (auto window = ctx.window_titled_scoped(...); window)`.
 	 */
-	NUKLEUS_NODISCARD window window_titled_scoped(const char* name, const char* title, rect<float> bounds, nk_flags flags)
+	NUKLEUS_NODISCARD window window_titled_scoped(const char* name, const char* title, rect<float> bounds, window_flags flags = window_flags::default_window_flags)
 	{
-		return window::create(m_ctx, nk_begin_titled(&m_ctx, name, title, bounds, flags) == nk_true);
+		return window::create(m_ctx, nk_begin_titled(&m_ctx, name, title, bounds, to_nk_flags(flags)) == nk_true);
 	}
 
 	/**
@@ -6943,35 +7456,51 @@ public:
 	}
 
 	/**
-	 * @copydoc window::window_collapse
+	 * @copydoc window::window_collapse_show
 	 */
-	void window_collapse(const char* name, nk_collapse_states state)
+	void window_collapse_show(const char* name, bool maximized = true)
 	{
-		nk_window_collapse(&m_ctx, name, state);
+		nk_window_collapse(&m_ctx, name, to_nk_collapse_states(maximized));
 	}
 
 	/**
-	 * @copydoc window::window_collapse_if
+	 * @copydoc window::window_collapse_hide
 	 */
-	void window_collapse_if(const char* name, nk_collapse_states state, int cond)
+	void window_collapse_hide(const char* name)
 	{
-		nk_window_collapse_if(&m_ctx, name, state, cond);
+		window_collapse_show(name, false);
+	}
+
+	/**
+	 * @copydoc window::window_collapse_show_if
+	 */
+	void window_collapse_show_if(const char* name, bool maximized, int cond)
+	{
+		nk_window_collapse_if(&m_ctx, name, to_nk_collapse_states(maximized), cond);
 	}
 
 	/**
 	 * @copydoc window::window_show
 	 */
-	void window_show(const char* name, nk_show_states state)
+	void window_show(const char* name, bool show = true)
 	{
-		nk_window_show(&m_ctx, name, state);
+		nk_window_show(&m_ctx, name, to_nk_show_states(show));
+	}
+
+	/**
+	 * @copydoc window::window_hide
+	 */
+	void window_hide(const char* name)
+	{
+		nk_window_show(&m_ctx, name, NK_HIDDEN);
 	}
 
 	/**
 	 * @copydoc window::window_show_if
 	 */
-	void window_show_if(const char* name, nk_show_states state, int cond)
+	void window_show_if(const char* name, bool show, int cond)
 	{
-		nk_window_show_if(&m_ctx, name, state, cond);
+		nk_window_show_if(&m_ctx, name, to_nk_show_states(show), cond);
 	}
 
 	/// @}
@@ -7021,6 +7550,11 @@ public:
 		nk_style_load_cursor(&m_ctx, cursor, &c);
 	}
 
+	void style_load_cursor(style_cursor cursor, const nk_cursor& c)
+	{
+		style_load_cursor(to_nk_enum(cursor), c);
+	}
+
 	void style_load_all_cursors(nk_cursor (&cursors)[NK_CURSOR_COUNT])
 	{
 		nk_style_load_all_cursors(&m_ctx, cursors);
@@ -7031,14 +7565,24 @@ public:
 		return nk_style_get_color_by_name(c);
 	}
 
+	NUKLEUS_NODISCARD static const char* style_get_color_name(style_colors c)
+	{
+		return style_get_color_name(to_nk_enum(c));
+	}
+
 	void style_set_font(const nk_user_font& font)
 	{
 		nk_style_set_font(&m_ctx, &font);
 	}
 
-	NUKLEUS_NODISCARD bool style_set_cursor(enum nk_style_cursor cursor)
+	NUKLEUS_NODISCARD bool style_set_cursor(nk_style_cursor cursor)
 	{
 		return nk_style_set_cursor(&m_ctx, cursor) == nk_true;
+	}
+
+	NUKLEUS_NODISCARD bool style_set_cursor(style_cursor cursor)
+	{
+		return style_set_cursor(to_nk_enum(cursor));
 	}
 
 	void style_show_cursor()
@@ -7183,24 +7727,24 @@ public:
 		reset();
 	}
 
-	draw_list(const nk_convert_config& config, nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	draw_list(const nk_convert_config& config, nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, bool line_aa, bool shape_aa)
 	{
-		setup(config, cmds, vertices, elements, line_aa, shape_aa);
+		setup(config, cmds, vertices, elements, to_nk_anti_aliasing(line_aa), to_nk_anti_aliasing(shape_aa));
 	}
 
-	draw_list(const nk_convert_config& config, buffer& cmds, buffer& vertices, buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	draw_list(const nk_convert_config& config, buffer& cmds, buffer& vertices, buffer& elements, bool line_aa, bool shape_aa)
 	: draw_list(config, cmds.get(), vertices.get(), elements.get(), line_aa, shape_aa)
 	{}
 
-	void setup(const nk_convert_config& config, nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	void setup(const nk_convert_config& config, nk_buffer& cmds, nk_buffer& vertices, nk_buffer& elements, bool line_aa, bool shape_aa)
 	{
 		reset();
-		nk_draw_list_setup(&m_draw_list, &config, &cmds, &vertices, &elements, line_aa, shape_aa);
+		nk_draw_list_setup(&m_draw_list, &config, &cmds, &vertices, &elements, to_nk_anti_aliasing(line_aa), to_nk_anti_aliasing(shape_aa));
 	}
 
-	void setup(const nk_convert_config& config, buffer& cmds, buffer& vertices, buffer& elements, nk_anti_aliasing line_aa, nk_anti_aliasing shape_aa)
+	void setup(const nk_convert_config& config, buffer& cmds, buffer& vertices, buffer& elements, bool line_aa, bool shape_aa)
 	{
-		setup(config, cmds.get(), vertices.get(), elements.get(), line_aa, shape_aa);
+		setup(config, cmds.get(), vertices.get(), elements.get(), to_nk_anti_aliasing(line_aa), to_nk_anti_aliasing(shape_aa));
 	}
 
 	void reset()
@@ -7329,9 +7873,15 @@ public:
 		nk_draw_list_stroke_curve(&m_draw_list, p0, cp0, cp1, p1, col, num_segments, thickness);
 	}
 
-	void stroke_poly_line(span<const struct nk_vec2> points, color col, bool closed, float thickness, enum nk_anti_aliasing aa)
+	void stroke_poly_line(span<const struct nk_vec2> points, color col, bool closed, float thickness, bool anti_aliasing)
 	{
-		nk_draw_list_stroke_poly_line(&m_draw_list, points.data(), static_cast<unsigned>(points.size()), col, closed ? NK_STROKE_CLOSED : NK_STROKE_OPEN, thickness, aa);
+		nk_draw_list_stroke_poly_line(
+			&m_draw_list,
+			points.data(),
+			static_cast<unsigned>(points.size()),
+			col, closed ? NK_STROKE_CLOSED : NK_STROKE_OPEN,
+			thickness,
+			to_nk_anti_aliasing(anti_aliasing));
 	}
 
 
@@ -7362,9 +7912,9 @@ public:
 		return nk_draw_list_fill_circle(&m_draw_list, center, radius, col, num_segments);
 	}
 
-	void fill_poly_convex(span<const struct nk_vec2> points, color col, nk_anti_aliasing aa)
+	void fill_poly_convex(span<const struct nk_vec2> points, color col, bool anti_aliasing)
 	{
-		return nk_draw_list_fill_poly_convex(&m_draw_list, points.data(), static_cast<unsigned>(points.size()), col, aa);
+		return nk_draw_list_fill_poly_convex(&m_draw_list, points.data(), static_cast<unsigned>(points.size()), col, to_nk_anti_aliasing(anti_aliasing));
 	}
 
 	/// @}

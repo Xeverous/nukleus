@@ -28,7 +28,7 @@ bool style_rgb(nk::window& win, const char* name, nk_color& color)
 	win.label(name, NK_TEXT_LEFT);
 	if (auto combo = win.combo_color_scoped(color, {win.widget_width(), 400})) {
 		win.layout_row_dynamic(120, 1);
-		nk::colorf colorf = win.color_picker(nk::colorf(color), NK_RGB);
+		nk::colorf colorf = win.color_picker_rgb(nk::colorf(color));
 		win.layout_row_dynamic(25, 1);
 		colorf.r = win.property("#R:", 0.0f, colorf.r, 1.0f, 0.01f, 0.005f);
 		colorf.g = win.property("#G:", 0.0f, colorf.g, 1.0f, 0.01f, 0.005f);

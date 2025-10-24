@@ -115,7 +115,7 @@ static struct node_editor editor;
 bool node_editor(nk::context& ctx)
 {
 	if (auto win = ctx.window_scoped("NodeEdit", {0, 0, 800, 600},
-		NK_WINDOW_BORDER|NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_MOVABLE|NK_WINDOW_CLOSABLE))
+		nk::window_flags::border | nk::window_flags::no_scrollbar | nk::window_flags::movable | nk::window_flags::closable))
 	{
 		/* allocate complete window space */
 		auto canvas = win.get_canvas();
@@ -149,7 +149,9 @@ bool node_editor(nk::context& ctx)
 				layout_space.push({it->bounds.x - editor.scrolling.x, it->bounds.y - editor.scrolling.y, it->bounds.w, it->bounds.h});
 
 				/* execute node window */
-				if (auto group = layout_space.group_scoped(it->name.c_str(), NK_WINDOW_MOVABLE|NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE))
+				if (auto group = layout_space.group_scoped(
+					it->name.c_str(),
+					nk::panel_flags::movable|nk::panel_flags::no_scrollbar|nk::panel_flags::border|nk::panel_flags::title))
 				{
 					// I replicated the same point where the panel object is obtained.
 					// If this call is moved elsewhere, a different object is obtained.
