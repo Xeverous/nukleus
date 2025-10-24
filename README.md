@@ -148,7 +148,8 @@ In Nuklear, you can pretty much call any function as long as you have the `nk_co
 
 General naming convention in the library:
 
-- `*_scoped` - the function returns a scope guard. Scope guards automatically manage `nk_*begin()` and `nk_*end()` calls. Most scope guards should be immediately checked (some do not have overloaded `operator bool` - in such case no check is required as their begin call always succeeds)
+- `*_flags` - if an enum name has such suffix, it means values act as bit flags and multiple can be active at the same time. Such enumerations also have overloaded operators: `&`, `|`, `^`, `~`, `&=`, `|=`, `^=`. There are also `%` overloads that return `bool` and are indented for flag "contains" tests like `if (flags % nk::panel_flags::border)`.
+- `*_scoped` - the function returns a scope guard. Scope guards automatically manage `nk_*begin()` and `nk_*end()` calls. Most scope guards should be immediately checked (some do not have overloaded `operator bool` - in such case no check is required as their begin call always succeeds).
 - `*_in_place` - the widget modifies supplied argument in-place (e.g. takes `int&` and returns `void` or `bool` instead of taking `int` and returning `int`). Some widgets have both forms.
 
 More complex cases:

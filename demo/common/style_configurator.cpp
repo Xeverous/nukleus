@@ -25,10 +25,10 @@ static const char* symbols[NK_SYMBOL_MAX] =
 
 bool style_rgb(nk::window& win, const char* name, nk_color& color)
 {
-	win.label(name, NK_TEXT_LEFT);
+	win.label(name, nk::text_alignment_flags::middle_left);
 	if (auto combo = win.combo_color_scoped(color, {win.widget_width(), 400})) {
 		win.layout_row_dynamic(120, 1);
-		nk::colorf colorf = win.color_picker(nk::colorf(color), NK_RGB);
+		nk::colorf colorf = win.color_picker_rgb(nk::colorf(color));
 		win.layout_row_dynamic(25, 1);
 		colorf.r = win.property("#R:", 0.0f, colorf.r, 1.0f, 0.01f, 0.005f);
 		colorf.g = win.property("#G:", 0.0f, colorf.g, 1.0f, 0.01f, 0.005f);
@@ -50,7 +50,7 @@ void style_item_color(nk::window& win, const char* name, nk_style_item& style_it
 void style_vec2(nk::window& win, const char* name, struct nk_vec2& vec)
 {
 	char buffer[64];
-	win.label(name, NK_TEXT_LEFT);
+	win.label(name, nk::text_alignment_flags::middle_left);
 	sprintf(buffer, "%.2f, %.2f", vec.x, vec.y);
 	if (auto combo = win.combo_label_scoped(buffer, {200, 200})) {
 		win.layout_row_dynamic(25, 1);
@@ -134,7 +134,7 @@ void style_button(nk::window& win, nk_style_button& style_button)
 	style_vec2(win, "Image Padding:", style_button.image_padding);
 	style_vec2(win, "Touch Padding:", style_button.touch_padding);
 
-	const char* alignments[] =
+	const char* const alignments[] =
 	{
 		"LEFT",
 		"CENTERED",
@@ -147,37 +147,30 @@ void style_button(nk::window& win, nk_style_button& style_button)
 		"BOTTOM RIGHT"
 	};
 
-#define TOP_LEFT       NK_TEXT_ALIGN_TOP|NK_TEXT_ALIGN_LEFT
-#define TOP_CENTER     NK_TEXT_ALIGN_TOP|NK_TEXT_ALIGN_CENTERED
-#define TOP_RIGHT      NK_TEXT_ALIGN_TOP|NK_TEXT_ALIGN_RIGHT
-#define BOTTOM_LEFT    NK_TEXT_ALIGN_BOTTOM|NK_TEXT_ALIGN_LEFT
-#define BOTTOM_CENTER  NK_TEXT_ALIGN_BOTTOM|NK_TEXT_ALIGN_CENTERED
-#define BOTTOM_RIGHT   NK_TEXT_ALIGN_BOTTOM|NK_TEXT_ALIGN_RIGHT
-
-	unsigned int aligns[] =
+	const nk::text_alignment_flags aligns[] =
 	{
-		NK_TEXT_LEFT,
-		NK_TEXT_CENTERED,
-		NK_TEXT_RIGHT,
-		TOP_LEFT,
-		TOP_CENTER,
-		TOP_RIGHT,
-		BOTTOM_LEFT,
-		BOTTOM_CENTER,
-		BOTTOM_RIGHT
+		nk::text_alignment_flags::middle_left,
+		nk::text_alignment_flags::middle_center,
+		nk::text_alignment_flags::middle_right,
+		nk::text_alignment_flags::top_left,
+		nk::text_alignment_flags::top_center,
+		nk::text_alignment_flags::top_right,
+		nk::text_alignment_flags::bottom_left,
+		nk::text_alignment_flags::bottom_center,
+		nk::text_alignment_flags::bottom_right
 	};
 
-	int cur_align = static_cast<int>(style_button.text_alignment) - NK_TEXT_LEFT;
+	int cur_align = static_cast<int>(style_button.text_alignment) - static_cast<int>(nk::text_alignment_flags::middle_left);
 	for (int i = 0; i < nk::ssize(aligns); ++i) {
-		if (style_button.text_alignment == aligns[i]) {
+		if (style_button.text_alignment == nk::to_nk_flags(aligns[i])) {
 			cur_align = i;
 			break;
 		}
 	}
 
-	win.label("Text Alignment:", NK_TEXT_LEFT);
+	win.label("Text Alignment:", nk::text_alignment_flags::middle_left);
 	cur_align = win.combobox(alignments, nk::ssize(alignments), cur_align, 25, {200, 200});
-	style_button.text_alignment = aligns[cur_align];
+	style_button.text_alignment = nk::to_nk_flags(aligns[cur_align]);
 
 	win.property_in_place("#Border:", -100.0f, style_button.border, 100.0f, 1, 0.5f);
 	win.property_in_place("#Rounding:", -100.0f, style_button.rounding, 100.0f, 1, 0.5f);
@@ -262,14 +255,14 @@ void style_slider(nk::window& win, nk_style_slider& style_slider)
 
 	if (style_slider.show_buttons) {
 		win.layout_row_dynamic(30, 2);
-		win.label("Inc Symbol:", NK_TEXT_LEFT);
+		win.label("Inc Symbol:", nk::text_alignment_flags::middle_left);
 		style_slider.inc_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_slider.inc_symbol, 25, {200, 200}));
-		win.label("Dec Symbol:", NK_TEXT_LEFT);
+		win.label("Dec Symbol:", nk::text_alignment_flags::middle_left);
 		style_slider.dec_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_slider.dec_symbol, 25, {200, 200}));
 
 		/* necessary or do tree's always take the whole width? */
 		/* win.layout_row_dynamic(30, 1); */
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Slider Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Slider Buttons", false)) {
 			nk_style_button& inc_button = win.get_context().style.slider.inc_button;
 			style_button(win, inc_button);
 			win.get_context().style.slider.dec_button = inc_button;
@@ -333,13 +326,13 @@ void style_scrollbars(nk::window& win, nk_style_scrollbar& style_scrollbar)
 
 	if (style_scrollbar.show_buttons) {
 		win.layout_row_dynamic(30, 2);
-		win.label("Inc Symbol:", NK_TEXT_LEFT);
+		win.label("Inc Symbol:", nk::text_alignment_flags::middle_left);
 		style_scrollbar.inc_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_scrollbar.inc_symbol, 25, {200, 200}));
-		win.label("Dec Symbol:", NK_TEXT_LEFT);
+		win.label("Dec Symbol:", nk::text_alignment_flags::middle_left);
 		style_scrollbar.dec_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_scrollbar.dec_symbol, 25, {200, 200}));
 
 		/* win.layout_row_dynamic(30, 1); */
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Scrollbar Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Scrollbar Buttons", false)) {
 			nk_style_button& inc_button = win.get_context().style.scrollh.inc_button;
 			style_button(win, inc_button);
 			win.get_context().style.scrollh.dec_button = inc_button;
@@ -400,17 +393,17 @@ void style_property(nk::window& win, nk_style_property& style_property)
 
 	/* there is no style_property.show_buttons, they're always there */
 
-	win.label("Left Symbol:", NK_TEXT_LEFT);
+	win.label("Left Symbol:", nk::text_alignment_flags::middle_left);
 	style_property.sym_left = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_property.sym_left, 25, {200, 200}));
-	win.label("Right Symbol:", NK_TEXT_LEFT);
+	win.label("Right Symbol:", nk::text_alignment_flags::middle_left);
 	style_property.sym_right = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_property.sym_right, 25, {200, 200}));
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Property Buttons", NK_MINIMIZED)) {
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Property Buttons", false)) {
 		style_button(win, style_property.inc_button);
 		style_property.dec_button = style_property.inc_button;
 	}
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Property Edit", NK_MINIMIZED)) {
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Property Edit", false)) {
 		style_edit(win, win.get_context().style.property.edit);
 	}
 }
@@ -444,11 +437,11 @@ void style_combo(nk::window& win, nk_style_combo& style_combo)
 	style_rgb(win, "Label Hover:", style_combo.label_hover);
 	style_rgb(win, "Label Active:", style_combo.label_active);
 
-	win.label("Normal Symbol:", NK_TEXT_LEFT);
+	win.label("Normal Symbol:", nk::text_alignment_flags::middle_left);
 	style_combo.sym_normal = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_combo.sym_normal, 25, {200, 200}));
-	win.label("Hover Symbol:", NK_TEXT_LEFT);
+	win.label("Hover Symbol:", nk::text_alignment_flags::middle_left);
 	style_combo.sym_hover = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_combo.sym_hover, 25, {200, 200}));
-	win.label("Active Symbol:", NK_TEXT_LEFT);
+	win.label("Active Symbol:", nk::text_alignment_flags::middle_left);
 	style_combo.sym_active = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_combo.sym_active, 25, {200, 200}));
 
 	style_vec2(win, "Content Padding:", style_combo.content_padding);
@@ -472,9 +465,9 @@ void style_tab(nk::window& win, nk_style_tab& style_tab)
 	 * FTR, I feel these fields are misnamed and should be sym_minimized and sym_maximized since they are
 	 * what show in that state, not the button to push to get to that state
 	 */
-	win.label("Minimized Symbol:", NK_TEXT_LEFT);
+	win.label("Minimized Symbol:", nk::text_alignment_flags::middle_left);
 	style_tab.sym_minimize = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_tab.sym_minimize, 25, {200, 200}));
-	win.label("Maxmized Symbol:", NK_TEXT_LEFT);
+	win.label("Maxmized Symbol:", nk::text_alignment_flags::middle_left);
 	style_tab.sym_maximize = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_tab.sym_maximize, 25, {200, 200}));
 
 	style_vec2(win, "Padding:", style_tab.padding);
@@ -503,19 +496,19 @@ void style_window_header(nk::window& win, nk_style_window_header& style_wh)
 
 	const char* alignments[] = { "LEFT", "RIGHT" };
 	win.layout_row_dynamic(30, 2);
-	win.label("Button Alignment:", NK_TEXT_LEFT);
+	win.label("Button Alignment:", nk::text_alignment_flags::middle_left);
 	style_wh.align = static_cast<nk_style_header_align>(win.combobox(alignments, nk::ssize(alignments), style_wh.align, 25, {200, 200}));
 
-	win.label("Close Symbol:", NK_TEXT_LEFT);
-	win.label("Minimize Symbol:", NK_TEXT_LEFT);
-	win.label("Maximize Symbol:", NK_TEXT_LEFT);
+	win.label("Close Symbol:", nk::text_alignment_flags::middle_left);
+	win.label("Minimize Symbol:", nk::text_alignment_flags::middle_left);
+	win.label("Maximize Symbol:", nk::text_alignment_flags::middle_left);
 	style_wh.close_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_wh.close_symbol, 25, {200, 200}));
 	style_wh.minimize_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_wh.minimize_symbol, 25, {200, 200}));
 	style_wh.maximize_symbol = static_cast<nk_symbol_type>(win.combobox(symbols, NK_SYMBOL_MAX, style_wh.maximize_symbol, 25, {200, 200}));
 
 	/* necessary or do tree's always take the whole width? */
 	/* nk_layout_row_dynamic(win, 30, 1); */
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Close and Minimize Button", NK_MINIMIZED)) {
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Close and Minimize Button", false)) {
 		style_button(win, style_wh.close_button);
 		style_wh.minimize_button = style_wh.close_button;
 	}
@@ -562,7 +555,7 @@ void style_window(nk::window& win, nk_style_window& style_window)
 	win.layout_row_dynamic(30, 1);
 	win.property_in_place("#Min Row Height Padding:", -100.0f, style_window.min_row_height_padding, 100.0f, 1, 0.5f);
 
-	if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Window Header", NK_MINIMIZED)) {
+	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Window Header", false)) {
 		style_window_header(win, style_window.header);
 	}
 }
@@ -580,104 +573,104 @@ bool style_configurator(nk::context& ctx, const nk::color_table& default_color_t
 	bool minimizable = true;
 
 	/* window flags */
-	nk_flags window_flags = 0;
-	if (border) window_flags |= NK_WINDOW_BORDER;
-	if (resize) window_flags |= NK_WINDOW_SCALABLE;
-	if (movable) window_flags |= NK_WINDOW_MOVABLE;
-	if (no_scrollbar) window_flags |= NK_WINDOW_NO_SCROLLBAR;
-	if (scale_left) window_flags |= NK_WINDOW_SCALE_LEFT;
-	if (minimizable) window_flags |= NK_WINDOW_MINIMIZABLE;
+	nk::window_flags window_flags{};
+	if (border) window_flags |= nk::window_flags::border;
+	if (resize) window_flags |= nk::window_flags::scalable;
+	if (movable) window_flags |= nk::window_flags::movable;
+	if (no_scrollbar) window_flags |= nk::window_flags::no_scrollbar;
+	if (scale_left) window_flags |= nk::window_flags::scale_left;
+	if (minimizable) window_flags |= nk::window_flags::minimizable;
 
 	nk_style& style = ctx.get_style();
 
 	if (auto win = ctx.window_scoped("Configurator", {10, 10, 400, 600}, window_flags)) {
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Global Colors", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Global Colors", false)) {
 			style_global_colors(ctx, win, color_table);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Text", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Text", false)) {
 			style_text(win, style.text);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Button", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Button", false)) {
 			style_button(win, style.button);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Contextual Button", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Contextual Button", false)) {
 			style_button(win, style.contextual_button);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Menu Button", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Menu Button", false)) {
 			style_button(win, style.menu_button);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Combo Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Combo Buttons", false)) {
 			style_button(win, style.combo.button);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Tab Min/Max Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Tab Min/Max Buttons", false)) {
 			style_button(win, style.tab.tab_minimize_button);
 			style.tab.tab_maximize_button = style.tab.tab_minimize_button;
 		}
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Node Min/Max Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Node Min/Max Buttons", false)) {
 			style_button(win, style.tab.node_minimize_button);
 			style.tab.node_maximize_button = style.tab.node_minimize_button;
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Window Header Close Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Window Header Close Buttons", false)) {
 			style_button(win, style.window.header.close_button);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Window Header Minimize Buttons", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Window Header Minimize Buttons", false)) {
 			style_button(win, style.window.header.minimize_button);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Checkbox", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Checkbox", false)) {
 			style_toggle(win, style.checkbox);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Option", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Option", false)) {
 			style_toggle(win, style.option);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Selectable", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Selectable", false)) {
 			style_selectable(win, style.selectable);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Slider", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Slider", false)) {
 			style_slider(win, style.slider);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Progress", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Progress", false)) {
 			style_progress(win, style.progress);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Scrollbars", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Scrollbars", false)) {
 			style_scrollbars(win, style.scrollh);
 			style.scrollv = style.scrollh;
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Edit", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Edit", false)) {
 			style_edit(win, style.edit);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Property", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Property", false)) {
 			style_property(win, style.property);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Chart", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Chart", false)) {
 			style_chart(win, style.chart);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Combo", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Combo", false)) {
 			style_combo(win, style.combo);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Tab", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Tab", false)) {
 			style_tab(win, style.tab);
 		}
 
-		if (auto tree = NUKLEUS_TREE_SCOPED(win, NK_TREE_TAB, "Window", NK_MINIMIZED)) {
+		if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::tab, "Window", false)) {
 			style_window(win, style.window);
 		}
 

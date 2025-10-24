@@ -9,8 +9,8 @@ void canvas(nk::context& ctx, nk_user_font& font)
 
 	/* create/update window and set position + size */
 	auto win = ctx.window_scoped("Canvas", {10, 10, 500, 550},
-		NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
-		NK_WINDOW_CLOSABLE|NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE);
+		nk::window_flags::no_scrollbar | nk::window_flags::border | nk::window_flags::movable | nk::window_flags::scalable
+		| nk::window_flags::closable | nk::window_flags::minimizable | nk::window_flags::title);
 	if (!win)
 		return;
 

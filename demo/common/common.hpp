@@ -42,7 +42,7 @@ inline void demo_window(nk::context& ctx, nk::colorf& bg)
 	auto w = ctx.window_scoped(
 		"Demo",
 		{50, 50, 230, 250},
-		NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE);
+		nk::window_flags::border | nk::window_flags::movable | nk::window_flags::scalable | nk::window_flags::minimizable | nk::window_flags::title);
 
 	if (!w)
 		return;
@@ -63,12 +63,12 @@ inline void demo_window(nk::context& ctx, nk::colorf& bg)
 	w.property_in_place("Compression:", 0, property, 100, 10, 1);
 
 	w.layout_row_dynamic(20, 1);
-	w.label("background:", NK_TEXT_LEFT);
+	w.label("background:", nk::text_alignment_flags::middle_left);
 
 	w.layout_row_dynamic(25, 1);
 	if (auto combo = w.combo_color_scoped(nk::color(bg), {w.widget_width(), 400})) {
 		w.layout_row_dynamic(120, 1);
-		bg = w.color_picker(bg, NK_RGBA);
+		bg = w.color_picker_rgba(bg);
 
 		w.layout_row_dynamic(25, 1);
 		bg.r = w.property("#R:", 0.0f, bg.r, 1.0f, 0.01f, 0.005f);
@@ -82,7 +82,7 @@ inline void demo_window(nk::context& ctx, nk::colorf& bg)
 inline void calculator(nk::context& ctx)
 {
 	if (auto win = ctx.window_scoped("Calculator", {10, 10, 180, 250},
-		NK_WINDOW_BORDER|NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_MOVABLE))
+		nk::window_flags::border|nk::window_flags::no_scrollbar|nk::window_flags::movable))
 	{
 		static int set = 0, prev = 0, op = 0;
 		static const char numbers[] = "789456123";
@@ -96,7 +96,7 @@ inline void calculator(nk::context& ctx)
 			char buffer[256];
 			win.layout_row_dynamic(35, 1);
 			len = snprintf(buffer, 256, "%.2f", *current);
-			(void) win.edit_string(NK_EDIT_SIMPLE, buffer, len, 255, nk_filter_float);
+			(void) win.edit_string(nk::edit_flags::simple, buffer, len, 255, nk_filter_float);
 			buffer[len] = 0;
 			*current = atof(buffer);
 		}

@@ -204,8 +204,8 @@ void nk_sdl_render(nk::context& ctx, buffers& buffs, nk_draw_null_texture tex_nu
 		config.global_alpha = 1.0f;
 		config.shape_AA = aa;
 		config.line_AA = aa;
-		const nk_convert_result result = ctx.convert(buffs.cmds, buffs.vbuf, buffs.ebuf, config);
-		if (result != nk_convert_result::NK_CONVERT_SUCCESS)
+		const nk::convert_result_flags result = ctx.convert(buffs.cmds, buffs.vbuf, buffs.ebuf, config);
+		if (result != nk::convert_result_flags::success)
 			std::cerr << "error when converting: " << static_cast<int>(result) << "\n";
 
 		/* setup vertex buffer pointer */
@@ -342,7 +342,7 @@ int main()
 		atlas.begin();
 		// add fonts here... if none are loaded a default font will be used
 		nk::vec2<int> dimentions{};
-		const void* image = atlas.bake(dimentions, NK_FONT_ATLAS_RGBA32);
+		const void* image = atlas.bake_rgba32(dimentions);
 		nk_sdl_device_upload_atlas(font_tex, image, dimentions.x, dimentions.y);
 		tex_null = atlas.end(nk_handle_id(static_cast<int>(font_tex)));
 	}

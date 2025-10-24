@@ -115,7 +115,7 @@ static struct node_editor editor;
 bool node_editor(nk::context& ctx)
 {
 	if (auto win = ctx.window_scoped("NodeEdit", {0, 0, 800, 600},
-		NK_WINDOW_BORDER|NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_MOVABLE|NK_WINDOW_CLOSABLE))
+		nk::window_flags::border | nk::window_flags::no_scrollbar | nk::window_flags::movable | nk::window_flags::closable))
 	{
 		/* allocate complete window space */
 		auto canvas = win.get_canvas();
@@ -149,15 +149,17 @@ bool node_editor(nk::context& ctx)
 				layout_space.push({it->bounds.x - editor.scrolling.x, it->bounds.y - editor.scrolling.y, it->bounds.w, it->bounds.h});
 
 				/* execute node window */
-				if (auto group = layout_space.group_scoped(it->name.c_str(), NK_WINDOW_MOVABLE|NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE))
+				if (auto group = layout_space.group_scoped(
+					it->name.c_str(),
+					nk::panel_flags::movable|nk::panel_flags::no_scrollbar|nk::panel_flags::border|nk::panel_flags::title))
 				{
 					// I replicated the same point where the panel object is obtained.
 					// If this call is moved elsewhere, a different object is obtained.
 					node = &win.get_panel();
 
 					/* always have last selected node on top */
-					if (ctx.input_mouse_clicked(NK_BUTTON_LEFT, node->bounds) &&
-						(!(it != editor.nodes.begin() && ctx.input_mouse_clicked(NK_BUTTON_LEFT,
+					if (ctx.input_mouse_clicked(nk::buttons::left, node->bounds) &&
+						(!(it != editor.nodes.begin() && ctx.input_mouse_clicked(nk::buttons::left,
 						layout_space.rect_to_screen(node->bounds)))) &&
 						editor.nodes.end() != std::next(it))
 					{
@@ -192,7 +194,7 @@ bool node_editor(nk::context& ctx)
 						canvas.fill_circle(circle, {100, 100, 100});
 
 						/* start linking process */
-						if (ctx.input_has_mouse_click_down_in_rect(NK_BUTTON_LEFT, circle, nk_true)) {
+						if (ctx.input_has_mouse_click_down_in_rect(nk::buttons::left, circle, nk_true)) {
 							editor.linking.active = nk_true;
 							editor.linking.nd = &*it;
 							editor.linking.input_id = it->id;
@@ -217,7 +219,7 @@ bool node_editor(nk::context& ctx)
 							8
 						);
 						canvas.fill_circle(circle, nk::color(100, 100, 100));
-						if (ctx.input_is_mouse_released(NK_BUTTON_LEFT) &&
+						if (ctx.input_is_mouse_released(nk::buttons::left) &&
 							ctx.input_is_mouse_hovering_rect(circle) &&
 							editor.linking.active && editor.linking.nd != &*it) {
 							editor.linking.active = nk_false;
@@ -228,7 +230,7 @@ bool node_editor(nk::context& ctx)
 			}
 
 			/* reset linking connection */
-			if (editor.linking.active && ctx.input_is_mouse_released(NK_BUTTON_LEFT)) {
+			if (editor.linking.active && ctx.input_is_mouse_released(nk::buttons::left)) {
 				editor.linking.active = false;
 				editor.linking.nd = nullptr;
 				fprintf(stdout, "linking failed\n");
@@ -258,7 +260,7 @@ bool node_editor(nk::context& ctx)
 			}
 
 			/* node selection */
-			if (ctx.input_mouse_clicked(NK_BUTTON_LEFT, layout_space.bounds())) {
+			if (ctx.input_mouse_clicked(nk::buttons::left, layout_space.bounds())) {
 				editor.selected = nullptr;
 				editor.bounds = nk::rect<float>(ctx.get_input().mouse.pos.x, ctx.get_input().mouse.pos.y, 100, 200);
 				for (auto it = editor.nodes.begin(); it != editor.nodes.end(); ++it) {
@@ -271,19 +273,19 @@ bool node_editor(nk::context& ctx)
 			}
 
 			/* contextual menu */
-			if (auto contextual = win.contextual_scoped(0, {100, 220}, win.get_bounds())) {
+			if (auto contextual = win.contextual_scoped({100, 220}, win.get_bounds(), nk::panel_flags::none)) {
 				const char* grid_option[] = {"Show Grid", "Hide Grid"};
 				win.layout_row_dynamic(25, 1);
-				if (contextual.item_label("New", NK_TEXT_CENTERED))
+				if (contextual.item_label("New", nk::text_alignment_flags::middle_center))
 					editor.add("New", {400, 260, 180, 220}, nk::color(255, 255, 255), 1, 2);
-				if (contextual.item_label(grid_option[editor.show_grid], NK_TEXT_CENTERED))
+				if (contextual.item_label(grid_option[editor.show_grid], nk::text_alignment_flags::middle_center))
 					editor.show_grid = !editor.show_grid;
 			}
 		}
 
 		/* window content scrolling */
 		if (ctx.input_is_mouse_hovering_rect(win.get_bounds()) &&
-			ctx.input_is_mouse_down(NK_BUTTON_MIDDLE)) {
+			ctx.input_is_mouse_down(nk::buttons::middle)) {
 			editor.scrolling.x += ctx.get_input().mouse.delta.x;
 			editor.scrolling.y += ctx.get_input().mouse.delta.y;
 		}
