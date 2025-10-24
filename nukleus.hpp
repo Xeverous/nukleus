@@ -231,7 +231,6 @@
 /*
 TODO possible improvements:
 - nk_flags - an alias for uint, not type safe
-- UTF-8 - undocumented
 */
 
 namespace nk {
@@ -1488,6 +1487,65 @@ inline bool strmatch_fuzzy_text(const char* str, int str_len, const char* patter
 }
 
 /// @} // string
+
+/**
+ * @defgroup unicode Unicode utility functions
+ * @{
+ */
+
+constexpr rune invalid_codepoint = NK_UTF_INVALID;
+
+/**
+ * @brief decode UTF-8 byte sequence into a Unicode code point
+ * @param utf8 text in UTF-8 format
+ * @param byte_len length of @p utf8 in bytes
+ * @param[out] codepoint UTF-32 codepoint or @ref invalid_codepoint on failure
+ * @return how many bytes from the input were consumed, `0` on failure
+ * @details check both results - it is possible to receive @ref invalid_codepoint while consuming some bytes
+ */
+inline int utf8_decode(const char* utf8, int byte_len, rune& codepoint)
+{
+	return nk_utf_decode(utf8, &codepoint, byte_len);
+}
+
+/**
+ * @brief encode Unicode codepoint into UTF-8 byte sequence
+ * @param codepoint UTF-32 codepoint
+ * @param buf_utf8 buffer to store UTF-8 string
+ * @param buf_size size of @p buf_utf8
+ * @return number of bytes written, `0` on failure
+ */
+inline int utf8_encode(rune codepoint, char* buf_utf8, int buf_size)
+{
+	return nk_utf_encode(codepoint, buf_utf8, buf_size);
+}
+
+/**
+ * @brief compute Unicode text length
+ * @param utf8 text in UTF-8 format
+ * @param byte_len length of @p utf8 in bytes
+ * @return number of codepoints, possibly `0`
+ */
+inline int utf8_len(const char* utf8, int byte_len)
+{
+	return nk_utf_len(utf8, byte_len);
+}
+
+/**
+ * @brief find codepoint at specific point in the text
+ * @param utf8 text in UTF-8 format
+ * @param byte_len length of @p utf8 in bytes
+ * @param index how many codepoints to skip
+ * @param[out] codepoint UTF-32 codepoint or @ref invalid_codepoint on failure
+ * @param[out] codepoint_len length of the codepoint in bytes
+ * @return starting position of the codepoint, null pointer on failure
+ */
+inline const char* utf8_at(const char* utf8, int byte_len, int index, rune& codepoint, int& codepoint_len)
+{
+	return nk_utf_at(utf8, byte_len, index, &codepoint, &codepoint_len);
+}
+
+/// @} // Unicode
 
 /**
  * @defgroup iterators_ranges Iterators and Ranges
