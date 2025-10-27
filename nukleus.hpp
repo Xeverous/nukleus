@@ -5940,14 +5940,37 @@ public:
 	 * @{
 	 */
 
-	NUKLEUS_NODISCARD bool progress_bar_in_place(nk_size& cur, nk_size max, bool modifyable)
+	NUKLEUS_NODISCARD bool progress_bar_in_place(nk_size& current, nk_size max, bool modifyable = false)
 	{
-		return nk_progress(&get_context(), &cur, max, modifyable) == nk_true;
+		return nk_progress(&get_context(), &current, max, modifyable) == nk_true;
 	}
 
-	NUKLEUS_NODISCARD nk_size progress_bar(nk_size cur, nk_size max, bool modifyable)
+	NUKLEUS_NODISCARD nk_size progress_bar(nk_size current, nk_size max, bool modifyable = false)
 	{
-		return nk_prog(&get_context(), cur, max, modifyable);
+		return nk_prog(&get_context(), current, max, modifyable);
+	}
+
+	template <typename Integer>
+	NUKLEUS_NODISCARD bool progress_bar_in_place(Integer& current, Integer max, bool modifyable = false)
+	{
+		NUKLEUS_ASSERT(current >= 0);
+		NUKLEUS_ASSERT(max >= 0);
+		static_assert(sizeof(Integer) <= sizeof(nk_size), "values must fit into nk_size");
+
+		auto arg_cur = static_cast<nk_size>(current);
+		auto result = progress_bar_in_place(arg_cur, static_cast<nk_size>(max), modifyable);
+		current = static_cast<Integer>(arg_cur);
+		return result;
+	}
+
+	template <typename Integer>
+	NUKLEUS_NODISCARD bool progress_bar(Integer current, Integer max, bool modifyable = false)
+	{
+		NUKLEUS_ASSERT(current >= 0);
+		NUKLEUS_ASSERT(max >= 0);
+		static_assert(sizeof(Integer) <= sizeof(nk_size), "values must fit into nk_size");
+
+		return progress_bar(static_cast<nk_size>(current), static_cast<nk_size>(max), modifyable);
 	}
 
 	/// @}
