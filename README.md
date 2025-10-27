@@ -37,10 +37,10 @@ Nukleus is a single-file header-only library. Nuklear has a source component and
 
 The CMake recipe in this repository offers 2 targets:
 
-- `xev::nukleus` which is a configurable library object with the implementation part. `target_link_libraries` will forward inclusion paths and all configured defines.
+- `xev::nukleus` which is a configurable library object with the implementation part. It has many options, including a replica of Nuklear's core build options. All of Nuklear-based options have defaults which are optimized for richest set of features and simplest way of integration. `target_link_libraries` will forward inclusion paths and all configured defines.
 - `xev::nukleus_headers` which is a non-configurable `INTERFACE` target. `target_link_libraries` will only forward inclusion paths. You are responsible for `NK_IMPLEMENTATION` and any other defines.
 
-Use `xev::nukleus` target from supplied CMake file if provided options are sufficient for you. Otherwise use `xev::nukleus_headers` in your project (it will be affected by your project's defines). Lastly, you can always integrate the code in a copy-paste manner in your own project with a completely different build system.
+Use `xev::nukleus` target from supplied CMake file if provided options are sufficient for you and you are fine with it not being header-only. Otherwise use `xev::nukleus_headers` in your project (it will be affected by your project's defines). Lastly, you can always integrate the code in a copy-paste manner in your own project with a completely different build system.
 
 If you either:
 
