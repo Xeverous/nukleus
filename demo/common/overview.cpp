@@ -495,10 +495,12 @@ void overview_widgets(nk::window& win)
 	{
 		static const float ratio[] = {120, 150};
 		static char field_buffer[64];
+		static char field_w_overwrite_buf[64];
 		static char text[9][64];
 		static int text_len[9];
 		static char box_buffer[512];
 		static int field_len;
+		static int field_ow_len;
 		static int box_len;
 
 		win.layout_row_static(25, ratio);
@@ -528,6 +530,9 @@ void overview_widgets(nk::window& win)
 
 		win.label("Field:", nk::text_alignment_flags::middle_left);
 		(void) win.edit_string(nk::edit_flags::field, field_buffer, field_len, 64, nk_filter_default);
+
+		win.label("Field 2:", nk::text_alignment_flags::middle_left);
+		(void) win.edit_string(nk::edit_flags::selectable | nk::edit_flags::clipboard, field_w_overwrite_buf, field_ow_len, 64, nk_filter_default);
 
 		win.label("Box:", nk::text_alignment_flags::middle_left);
 		win.layout_row_static(180, 278, 1);
