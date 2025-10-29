@@ -29,6 +29,7 @@ Additions:
 Requirements:
 
 - C++11 (recommended C++17)
+- https://github.com/Immediate-Mode-UI/Nuklear/ (commit fcd64f85e54b9d35eee13347748d70fa4d2e134e or newer)
 - (for demo application) SDL >= 2.0.18
 
 ## Building

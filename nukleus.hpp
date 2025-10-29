@@ -3860,6 +3860,11 @@ public:
 		return nk_input_is_mouse_hovering_rect(&get(), bounds) == nk_true;
 	}
 
+	bool is_mouse_moved() const
+	{
+		return nk_input_is_mouse_moved(&get()) == nk_true;
+	}
+
 	bool mouse_clicked(nk_buttons id, rect<float> bounds) const
 	{
 		return nk_input_mouse_clicked(&get(), id, bounds) == nk_true;

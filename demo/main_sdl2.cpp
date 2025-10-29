@@ -19,7 +19,9 @@ int nk_sdl_handle_event(nk::event_input& input, SDL_Event& evt)
 		case SDL_KEYDOWN:
 		{
 			const int down = evt.type == SDL_KEYDOWN;
-			const int ctrl_down = SDL_GetModState() & (KMOD_LCTRL | KMOD_RCTRL);
+			const int ctrl_down = SDL_GetModState() & KMOD_CTRL;
+			static int insert_toggle = 0;
+
 			switch (evt.key.keysym.sym)
 			{
 				case SDLK_RSHIFT: /* RSHIFT & LSHIFT share same routine */
@@ -46,6 +48,12 @@ int nk_sdl_handle_event(nk::event_input& input, SDL_Event& evt)
 				case SDLK_e:         input.key(NK_KEY_TEXT_LINE_END, down && ctrl_down); break;
 				case SDLK_UP:        input.key(NK_KEY_UP, down); break;
 				case SDLK_DOWN:      input.key(NK_KEY_DOWN, down); break;
+				case SDLK_ESCAPE:    input.key(NK_KEY_TEXT_RESET_MODE, down); break;
+				case SDLK_INSERT:
+					if (down)
+						insert_toggle = !insert_toggle;
+					input.key(insert_toggle ? NK_KEY_TEXT_INSERT_MODE : NK_KEY_TEXT_REPLACE_MODE, down);
+					break;
 				case SDLK_a:
 					if (ctrl_down)
 						input.key(NK_KEY_TEXT_SELECT_ALL, down);
