@@ -16,6 +16,16 @@ How to test that compilation works:
 
 Almost every file is a source file in order to verify that any particular implementation does not contain any linker bugs (e.g. lack of `inline` or improperly defined `static` constants).
 
+# Notes
+
+A class can not easily have static const instances of its own type (only functions) because declaring such members requires the class to be complete. There are some workarounds like splitting declaration/definition (or using functions or a global reference) but these break header-only library idea.
+
+- https://stackoverflow.com/questions/29432283/c-static-constexpr-field-with-incomplete-type
+- https://stackoverflow.com/questions/11928089/static-constexpr-member-of-same-type-as-class-being-defined
+- https://stackoverflow.com/questions/21008861/initializing-a-static-constexpr-from-an-incomplete-type-because-of-a-template-ba
+
+A class can inherit `friend` free function operator overloads. This is useful with templates and inheritance.
+
 # Summary
 
 Below is a summary of all experiments and a comparison between implementations.
