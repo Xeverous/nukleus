@@ -989,7 +989,10 @@ void overview_layout(nk::context& ctx, nk::window& win)
 	{
 		auto layout = win.layout_row_dynamic(300, 2);
 		if (auto group = layout.group_scoped("Group_Without_Border", nk::panel_flags::none)) {
-			win.layout_row_static(18, 150, 1);
+			// Note: original example had "win.layout_row_static(18, 150, 1);" but 150 wasn't enough.
+			// Added manual width computation as an example (in practice use dynamic row layout).
+			// https://github.com/Immediate-Mode-UI/Nuklear/issues/839
+			win.layout_row_static(18, ctx.get_text_width("0x00: scrollable region"), 1);
 			for (int i = 0; i < 64; ++i) {
 				char buffer[64];
 				sprintf(buffer, "0x%02x", i);
@@ -1066,9 +1069,14 @@ void overview_layout(nk::context& ctx, nk::window& win)
 
 	if (auto tree = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Splitter", false))
 	{
-		win.layout_row_static(20, 320, 1);
+		// Note: original example had "win.layout_row_static(20, 320, 1);" but 320 wasn't enough.
+		// Added manual width computation as an example (in practice use dynamic row layout).
+		// https://github.com/Immediate-Mode-UI/Nuklear/issues/839
+		const char* const label_drag = "Drag the space between tiles to change tile ratio";
+		win.layout_row_static(20, ctx.get_text_width(label_drag), 1);
+
 		win.label("Use slider and spinner to change tile size", nk::text_alignment_flags::middle_left);
-		win.label("Drag the space between tiles to change tile ratio", nk::text_alignment_flags::middle_left);
+		win.label(label_drag, nk::text_alignment_flags::middle_left);
 
 		if (auto tr = NUKLEUS_TREE_SCOPED(win, nk::tree_type::node, "Vertical", false))
 		{

@@ -7896,6 +7896,64 @@ public:
 	/// @}
 
 	/**
+	 * @name Font utility functions
+	 * @{
+	 */
+
+	float get_current_font_height() const
+	{
+		NUKLEUS_ASSERT(m_ctx.style.font != nullptr);
+		return m_ctx.style.font->height;
+	}
+
+	/**
+	 * @brief get width of text
+	 * @param font font to use in computation
+	 * @param text text to compute
+	 * @param text_len length of the text (in bytes)
+	 * @return width occupied by specified text if rendered
+	 */
+	float get_text_width(const nk_user_font& font, const char* text, int text_len) const
+	{
+		return font.width(font.userdata, font.height, text, text_len);
+	}
+
+	/**
+	 * @brief get width of text
+	 * @param font font to use in computation
+	 * @param str text to compute (null-terminated)
+	 * @return width occupied by specified text if rendered
+	 */
+	float get_text_width(const nk_user_font& font, const char* str) const
+	{
+		return get_text_width(font, str, nk_strlen(str));
+	}
+
+	/**
+	 * @brief get width of text (using current font)
+	 * @param text text to compute
+	 * @param text_len length of the text (in bytes)
+	 * @return width occupied by specified text if rendered
+	 */
+	float get_text_width(const char* text, int text_len) const
+	{
+		NUKLEUS_ASSERT(m_ctx.style.font != nullptr);
+		return get_text_width(*m_ctx.style.font, text, text_len);
+	}
+
+	/**
+	 * @brief get width of text (using current font)
+	 * @param str text to compute (null-terminated)
+	 * @return width occupied by specified text if rendered
+	 */
+	float get_text_width(const char* str) const
+	{
+		return get_text_width(str, nk_strlen(str));
+	}
+
+	/// @}
+
+	/**
 	 * @name Public fields of the context struct
 	 * @{
 	 */
