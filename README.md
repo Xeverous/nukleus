@@ -98,7 +98,7 @@ and forces to write code like this:
 ```cpp
 // now window has a proper lifetime
 // "if" will call "explicit operator bool() const &"
-if (auto window = ctx.window_scoped("Title", r, flags); w)
+if (auto window = ctx.window_scoped("Title", r, flags); window)
 ```
 
 If you don't have C++17 2-statement `if`, you can do this:
@@ -145,13 +145,13 @@ This library does not add any backend by itself. Follow Nuklear's documentation.
 
 Majority of time you simply change `nk_func(ctx, other_args);` to `win.func(other_args);`. Majority of functions are present in the `nk::context` and `nk::window` classes.
 
-In Nuklear, you can pretty much call any function as long as you have the `nk_context` object. However, many functions are not allowed to be called when their respective scope has not been started (`nk_*begin()`) or has just finished (`nk_*end()`). Because of this, Nukleus puts access to such functions in respective classes (many inherit `scope_guard`), requiring to create them first.
+In Nuklear, you can pretty much call any function as long as you have the `nk_context` object. However, many functions are not allowed to be called when their respective scope has not been started (`nk_*begin()`) or has just finished (`nk_*end()`). Because of this, Nukleus puts access to such functions in specific classes (which typically inherit `nk::scope_guard` or something similar), requiring to create them first through `nk::context`, `nk::window` and similar objects.
 
 General naming convention in the library:
 
-- `*_flags` - if an enum name has such suffix, it means values act as bit flags and multiple can be active at the same time. Such enumerations also have overloaded operators: `&`, `|`, `^`, `~`, `&=`, `|=`, `^=`. There are also `%` overloads that return `bool` and are indented for flag "contains" tests like `if (flags % nk::panel_flags::border)`.
-- `*_scoped` - the function returns a scope guard. Scope guards automatically manage `nk_*begin()` and `nk_*end()` calls. Most scope guards should be immediately checked (some do not have overloaded `operator bool` - in such case no check is required as their begin call always succeeds).
-- `*_in_place` - the widget modifies supplied argument in-place (e.g. takes `int&` and returns `void` or `bool` instead of taking `int` and returning `int`). Some widgets have both forms.
+- `*_flags` - if an enum name has such suffix, it means values act as bit flags and multiple can be active at the same time. Such enumerations also have overloaded operators: `&`, `|`, `^`, `~`, `&=`, `|=`, `^=`. There are also `%` overloads that return `bool` and are intended for flag tests like `if (flags % nk::panel_flags::border)`. The `%` operator has been added because `|` and `&` return strongly-typed enums and only classes can have custom convertion to `bool`.
+- `*_scoped` - such functions returns a scope guard. Scope guards automatically manage `nk_*begin()` and `nk_*end()` calls. Most scope guards should be immediately checked (some do not have overloaded `operator bool` - in such case no check is required as their begin call always succeeds).
+- `*_in_place` - such widget function modifies supplied argument in-place (e.g. takes `int&` and returns `void` or `bool` instead of taking `int` and returning `int`). Some widgets have both forms.
 
 More complex cases:
 
