@@ -200,12 +200,15 @@ if(NUKLEUS_BUILD_DEMO_SDL2) # later: use OR for any additional demos
 	apply_nukleus_warning_flags(nukleus_demo_common)
 	target_compile_definitions(nukleus_demo_common PUBLIC
 		NK_INCLUDE_FIXED_TYPES
+		NK_INCLUDE_STANDARD_BOOL
 		NK_INCLUDE_STANDARD_IO
 		NK_INCLUDE_STANDARD_VARARGS
 		NK_INCLUDE_DEFAULT_ALLOCATOR
 		NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 		NK_INCLUDE_FONT_BAKING
 		NK_INCLUDE_DEFAULT_FONT
+		NK_UINT_DRAW_INDEX
+		NK_ZERO_COMMAND_MEMORY
 	)
 	target_include_directories(nukleus_demo_common PUBLIC demo)
 	target_link_libraries(nukleus_demo_common PUBLIC xev::nukleus_headers)

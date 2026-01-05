@@ -241,7 +241,11 @@ void nk_sdl_render(nk::context& ctx, buffers& buffs, nk_draw_null_texture tex_nu
 				static_cast<GLint>((height - static_cast<GLint>(cmd.clip_rect.y + cmd.clip_rect.h)) * scale.y),
 				static_cast<GLint>(cmd.clip_rect.w * scale.x),
 				static_cast<GLint>(cmd.clip_rect.h * scale.y));
+			#ifdef NK_UINT_DRAW_INDEX
+			glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(cmd.elem_count), GL_UNSIGNED_INT, offset);
+			#else
 			glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(cmd.elem_count), GL_UNSIGNED_SHORT, offset);
+			#endif
 
 			offset += cmd.elem_count;
 		}
