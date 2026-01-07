@@ -2492,6 +2492,7 @@ public:
 			const nk_bool result = (*func)(&get_context());
 			set_func(nullptr);
 			NUKLEUS_ASSERT(result == nk_true); // if pop fails, something must gone really wrong
+			(void) result;
 		}
 	}
 };
@@ -7755,6 +7756,9 @@ private:
 		const auto max = static_cast<const void*>(&m_ctx + 1);
 		NUKLEUS_ASSERT(min <= p);
 		NUKLEUS_ASSERT(p < max);
+		(void) min;
+		(void) max;
+		(void) p;
 	}
 
 public:
