@@ -5164,7 +5164,7 @@ public:
 	 * A row has a height the window content grows by and a number of columns and each
 	 * layouting method specifies how each widget is placed inside the row.
 	 * After a row has been allocated by calling a layouting functions and then
-	 * filled with widgets will advance an internal pointer over the allocated row.
+	 * filled with widgets it will advance an internal pointer over the allocated row.
 	 *
 	 * To actually define a layout you just call the appropriate layouting function
 	 * and each subsequent widget call will place the widget as specified. Important here
@@ -5185,10 +5185,10 @@ public:
 	 * reset it back to be derived from font height.
 	 *
 	 * Also if you change the font in nuklear it will automatically change the minimum
-	 * row height for you and. This means if you change the font but still want
+	 * row height for you. This means if you change the font but still want
 	 * a minimum row height smaller than the font you have to repush your value.
 	 *
-	 * For actually more advanced UI I would even recommend using the `layout_space_xxx`
+	 * For actually more advanced UI Nuklear recommends using the `layout_space_xxx`
 	 * layouting method in combination with a cassowary constraint solver (there are
 	 * some versions on github with permissive license model) to take over all control over widget
 	 * layouting yourself. However for quick and dirty layouting using all the other layouting
