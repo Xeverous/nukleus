@@ -3534,6 +3534,25 @@ public:
 	{
 		return add_from_file(file_path, height, &config.get());
 	}
+
+	/**
+	 * @brief Add a font from file. Requires `NK_INCLUDE_STANDARD_IO`.
+	 * @param file_path Path to the file with font data.
+	 * @param config Font configuration.
+	 * @return Pointer to font object, managed by the atlas.
+	 */
+	NUKLEUS_NODISCARD nk_font* add_from_file(const char* file_path, const struct nk_font_config& config)
+	{
+		return add_from_file(file_path, config.size, &config);
+	}
+
+	/**
+	 * @copydoc add_from_file(const char* file_path, const struct nk_font_config& config)
+	 */
+	NUKLEUS_NODISCARD nk_font* add_from_file(const char* file_path, const font_config& config)
+	{
+		return add_from_file(file_path, config.get());
+	}
 #endif
 
 	/**
