@@ -2581,6 +2581,12 @@ public:
 		m_initialized = false;
 	}
 
+	friend void swap(buffer& lhs, buffer& rhs)
+	{
+		nk::swap(lhs.m_buffer, rhs.m_buffer);
+		nk::swap(lhs.m_initialized, rhs.m_initialized);
+	}
+
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
 	/**
 	 * @brief Requires `NK_INCLUDE_DEFAULT_ALLOCATOR`.
@@ -2733,6 +2739,12 @@ public:
 
 		nk_str_free(&m_str);
 		m_initialized = false;
+	}
+
+	friend void swap(string_buffer& lhs, string_buffer& rhs)
+	{
+		nk::swap(lhs.m_str, rhs.m_str);
+		nk::swap(lhs.m_initialized, rhs.m_initialized);
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
@@ -2991,6 +3003,12 @@ public:
 
 		nk_textedit_free(&m_state);
 		m_initialized = false;
+	}
+
+	friend void swap(text_edit& lhs, text_edit& rhs)
+	{
+		nk::swap(lhs.m_state, rhs.m_state);
+		nk::swap(lhs.m_initialized, rhs.m_initialized);
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
@@ -3361,6 +3379,12 @@ public:
 
 		nk_font_atlas_clear(&m_atlas);
 		m_initialized = false;
+	}
+
+	friend void swap(font_atlas& lhs, font_atlas& rhs)
+	{
+		nk::swap(lhs.m_atlas, rhs.m_atlas);
+		nk::swap(lhs.m_initialized, rhs.m_initialized);
 	}
 
 #ifdef NK_INCLUDE_DEFAULT_ALLOCATOR
@@ -7274,6 +7298,12 @@ public:
 	{
 		NUKLEUS_ASSERT(m_valid);
 		nk_clear(&m_ctx);
+	}
+
+	friend void swap(context& lhs, context& rhs)
+	{
+		nk::swap(lhs.m_ctx, rhs.m_ctx);
+		nk::swap(lhs.m_valid, rhs.m_valid);
 	}
 
 #ifdef NK_INCLUDE_COMMAND_USERDATA
